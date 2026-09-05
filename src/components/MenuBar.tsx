@@ -363,7 +363,7 @@ export const MenuBar = () => {
       },
       {
         id: 'side-ai',
-        label: 'Copilot Assistant Panel',
+        label: 'DevPilotX Assistant Panel',
         icon: Sparkles,
         shortcut: 'Ctrl+Shift+A',
         action: () => selectActivityAndEditor('ai'),
@@ -508,7 +508,7 @@ export const MenuBar = () => {
       },
       {
         id: 'help-copilot',
-        label: 'Multi-Model Copilot Guide',
+        label: 'Multi-Model DevPilotX Guide',
         icon: Sparkles,
         action: () => setIsModelSelectorOpen(true),
       },
@@ -629,7 +629,7 @@ export const MenuBar = () => {
                 { key: 'Ctrl + B', desc: 'Toggle Primary Sidebar' },
                 { key: 'Ctrl + `', desc: 'Toggle Bottom Terminal Panel' },
                 { key: 'Ctrl + Shift + F', desc: 'Search & Replace in Project' },
-                { key: 'Ctrl + Shift + A', desc: 'Open Copilot AI Assistant' },
+                { key: 'Ctrl + Shift + A', desc: 'Open DevPilotX AI Assistant' },
                 { key: 'Ctrl + Shift + G', desc: 'Open Source Control (Git)' },
                 { key: 'Ctrl + Shift + D', desc: 'Open Run and Debug' },
                 { key: 'Ctrl + Shift + X', desc: 'Open Extensions Marketplace' },

@@ -78,7 +78,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                GitHub Copilot AI Model Selector
+                DevPilotX AI Model Selector
               </h2>
               <p className="text-xs text-[#8B949E]">
                 Select between Google Gemini, NVIDIA Nemotron, MiniMax, Claude, DeepSeek, OpenAI, Mistral & Free-tier models.

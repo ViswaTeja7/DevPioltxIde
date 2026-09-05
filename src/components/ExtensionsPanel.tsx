@@ -37,8 +37,8 @@ export const ExtensionsPanel = () => {
   const [extensions, setExtensions] = useState<ExtensionItem[]>([
     {
       id: 'ext-copilot',
-      name: 'GitHub Copilot Multi-Model',
-      publisher: 'GitHub',
+      name: 'DevPilotX Multi-Model Agent',
+      publisher: 'DevPilotX',
       version: 'v1.14.0',
       description: 'AI pair programmer with Gemini 3.7, Claude 3.7, GPT-4o, and DeepSeek R1 reasoning.',
       installed: true,

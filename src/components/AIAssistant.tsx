@@ -124,12 +124,12 @@ export const AIAssistant = () => {
 
   return (
     <div className="flex flex-col h-full bg-[#161B22] border-l border-[#30363D]">
-      {/* Top Header with Copilot Model Selector */}
+      {/* Top Header with DevPilotX Model Selector */}
       <div className="p-3 border-b border-[#30363D] flex items-center justify-between gap-2 bg-[#161B22] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2 h-2 rounded-full bg-[#2EA043] shrink-0 animate-pulse"></span>
           <span className="text-xs font-bold uppercase tracking-wider text-white truncate">
-            Copilot Chat
+            DevPilotX Chat
           </span>
           <button
             onClick={() => setActiveView('skills')}

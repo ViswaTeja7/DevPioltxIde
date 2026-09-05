@@ -269,10 +269,10 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
           </button>
         </div>
 
-        {/* AI & Copilot Suite */}
+        {/* AI & DevPilotX Suite */}
         <div className="py-1">
           <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#8B949E] flex items-center justify-between">
-            <span>AI Copilot & Models</span>
+            <span>DevPilotX AI & Models</span>
             <span className="text-[9px] bg-[#1F6FEB]/20 text-[#58A6FF] px-1.5 py-0.2 rounded border border-[#388BFD]/30 font-medium">
               Multi-LLM
             </span>
@@ -298,7 +298,7 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
           >
             <span className="flex items-center gap-2.5">
               <Sparkles size={14} className="text-[#58A6FF]" />
-              Open Copilot Code Assistant
+              Open DevPilotX Code Assistant
             </span>
             <span className="text-[10px] text-[#8B949E]">Ctrl+Shift+A</span>
           </button>
@@ -414,7 +414,7 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
                 <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + Shift + F</kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
-                <span className="text-[#C9D1D9]">Toggle AI Copilot</span>
+                <span className="text-[#C9D1D9]">Toggle DevPilotX AI</span>
                 <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + Shift + A</kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
@@ -466,7 +466,7 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
                   DevPilotX Studio <span className="text-[10px] bg-[#1F6FEB]/30 text-[#58A6FF] px-1.5 py-0.5 rounded font-normal">v2.5.0</span>
                 </div>
                 <p className="text-[#8B949E] text-[11px]">
-                  Next-generation cloud browser IDE powered by GitHub Copilot multi-model engine, Monaco code editor, terminal emulation, and project dashboard.
+                  Next-generation cloud browser IDE powered by the DevPilotX multi-model engine, Monaco code editor, real terminal, and project dashboard.
                 </p>
               </div>
 

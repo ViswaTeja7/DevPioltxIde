@@ -188,7 +188,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     {
       id: 'msg-1',
       role: 'agent',
-      content: 'Hello! I am DevPilotX with GitHub Copilot AI model integration. You can switch between Gemini 3.7 Flash, Claude 3.7 Sonnet, GPT-4o, DeepSeek R1, Llama 3.3, and local/cloud Ollama. How can I help you build today?',
+      content: 'Hello! I am DevPilotX, your AI development agent. You can switch between Gemini 3.7 Flash, Claude 3.7 Sonnet, GPT-4o, DeepSeek R1, Llama 3.3, and local/cloud Ollama. How can I help you build today?',
       timestamp: new Date(),
       modelId: DEFAULT_MODEL_ID,
       modelName: 'Gemini 3.7 Flash',

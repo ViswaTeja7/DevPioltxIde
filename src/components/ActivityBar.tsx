@@ -12,7 +12,7 @@ export const ActivityBar = () => {
     { id: 'git', icon: GitBranch, title: 'Source Control (Ctrl+Shift+G)' },
     { id: 'debug', icon: Bug, title: 'Run and Debug (Ctrl+Shift+D)' },
     { id: 'extensions', icon: Blocks, title: 'Extensions (Ctrl+Shift+X)' },
-    { id: 'ai', icon: Sparkles, title: 'Copilot Code Assistant (Ctrl+Shift+A)' },
+    { id: 'ai', icon: Sparkles, title: 'DevPilotX Code Assistant (Ctrl+Shift+A)' },
     { id: 'skills', icon: BrainCircuit, title: 'Train Agent & Claude Skills' },
     { id: 'tasks', icon: Wand2, title: 'Multimodal Task Studio (Images, Research, Docs)' },
   ] as const;

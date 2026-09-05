@@ -66,11 +66,11 @@ export const SettingsPanel = () => {
       </div>
       
       <div className="p-4 flex-1 space-y-6">
-        {/* Active Copilot Model Card */}
+        {/* Active DevPilotX Model Card */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-[10px] uppercase font-bold tracking-wider text-[#8B949E]">
-              Current Copilot Model
+              Current DevPilotX Model
             </h3>
             <button
               onClick={() => setIsModelSelectorOpen(true)}

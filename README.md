@@ -5,7 +5,7 @@ A modern, high-density, AI-assisted development environment running natively in 
 ## Features
 
 - **Project Dashboard**: A dedicated cockpit view featuring cyclomatic complexity heatmaps, automated test coverage trends, CI/CD integrations, and intelligent batch-fix previews.
-- **AI Assistant**: Built-in multi-model chat (supports Gemini, OpenRouter, Ollama, Groq) with IDE context awareness.
+- **DevPilotX Agent**: Built-in multi-model chat (supports Gemini, OpenRouter, Ollama, Groq) with IDE context awareness.
 - **Monaco Editor**: Industry-standard code editor with syntax highlighting, auto-completion, and minimap.
 - **Full-Stack Architecture**: React front-end powered by an Express backend for secure API management.
 
