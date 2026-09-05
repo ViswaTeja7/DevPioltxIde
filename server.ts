@@ -7,6 +7,7 @@ import { createServer } from "http";
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import os from "os";
+import fs from "fs/promises";
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -76,6 +77,43 @@ function agentModeInstruction(mode: string = "agent"): string {
     default:
       return "\n[AGENT MODE: AGENT]\nAct as an implementation-focused coding agent. Inspect the supplied workspace, then return production-ready file actions for requested changes using the DevPilotX action protocol below. Never claim a file was changed unless you returned an action for it.";
   }
+
+}
+
+const WORKSPACE_IGNORED_DIRECTORIES = new Set([".git", "node_modules", "dist", "build", ".next", "coverage"]);
+const WORKSPACE_TEXT_EXTENSIONS = new Set([
+  ".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".html", ".md", ".txt", ".yml", ".yaml", ".xml", ".svg"
+]);
+
+async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
+  const files: Array<{ path: string; content: string }> = [];
+  const maxFiles = 120;
+  const maxTotalBytes = 900_000;
+
+  async function walk(directory: string): Promise<void> {
+    if (files.length >= maxFiles || files.reduce((sum, file) => sum + file.content.length, 0) >= maxTotalBytes) return;
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (files.length >= maxFiles) return;
+      if (entry.isDirectory() && WORKSPACE_IGNORED_DIRECTORIES.has(entry.name)) continue;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absolutePath);
+        continue;
+      }
+      const extension = path.extname(entry.name).toLowerCase();
+      if (!WORKSPACE_TEXT_EXTENSIONS.has(extension) && entry.name !== "Dockerfile") continue;
+      try {
+        const content = await fs.readFile(absolutePath, "utf8");
+        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: content.slice(0, 120_000) });
+      } catch {
+        // Ignore unreadable or concurrently removed files during discovery.
+      }
+    }
+  }
+
+  await walk(root);
+  return files;
 }
 
 const AGENT_ACTION_PROTOCOL = `
@@ -494,9 +532,11 @@ async function startServer() {
       const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const workspaceContext = Array.isArray(workspace)
-        ? `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`
-        : "";
+      const discoveredWorkspace = await discoverWorkspace(process.cwd());
+      const workspaceFiles = discoveredWorkspace.length > 0 ? discoveredWorkspace : (Array.isArray(workspace) ? workspace : []);
+      const workspaceContext = workspaceFiles.length > 0
+        ? `\n[CURRENT WORKSPACE DISCOVERED FROM THE SERVER]\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`
+        : "\n[CURRENT WORKSPACE]\nNo readable project files were discovered on the server.\n";
       const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
         agentModeInstruction(agentMode) +
         ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceContext;
@@ -798,7 +838,8 @@ async function startServer() {
         actions: parsedAgentResponse.actions,
         metadata: {
           skillsActiveCount: activeSkillsCount,
-          trainingExamplesCount: activeExamplesCount
+          trainingExamplesCount: activeExamplesCount,
+          workspaceFilesDiscovered: workspaceFiles.length
         }
       });
     } catch (error: any) {
@@ -963,8 +1004,10 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
-      const workspaceContext = Array.isArray(workspace)
-        ? `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}`
+      const discoveredWorkspace = await discoverWorkspace(process.cwd());
+      const workspaceFiles = discoveredWorkspace.length > 0 ? discoveredWorkspace : (Array.isArray(workspace) ? workspace : []);
+      const workspaceContext = workspaceFiles.length > 0
+        ? `\n[CURRENT WORKSPACE DISCOVERED FROM THE SERVER]\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}`
         : "";
 
       let report = "";
