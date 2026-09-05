@@ -116,6 +116,25 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
   return files;
 }
 
+async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
+  const discoveredWorkspace = await discoverWorkspace(process.cwd());
+  const workspaceFiles = discoveredWorkspace.length > 0
+    ? discoveredWorkspace
+    : (Array.isArray(workspace) ? workspace : []);
+  if (workspaceFiles.length === 0) {
+    console.warn(`[Workspace discovery] No readable source files found under ${process.cwd()}`);
+    return {
+      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${process.cwd()} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
+      fileCount: 0
+    };
+  }
+  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${process.cwd()}`);
+  return {
+    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${process.cwd()}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
+    fileCount: workspaceFiles.length
+  };
+}
+
 const AGENT_ACTION_PROTOCOL = `
 [DEVPILOTX ACTION PROTOCOL]
 For Agent and Autonomous modes, include any requested code changes in a JSON code block tagged \`\`\`devpilotx-actions.
@@ -532,14 +551,10 @@ async function startServer() {
       const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const discoveredWorkspace = await discoverWorkspace(process.cwd());
-      const workspaceFiles = discoveredWorkspace.length > 0 ? discoveredWorkspace : (Array.isArray(workspace) ? workspace : []);
-      const workspaceContext = workspaceFiles.length > 0
-        ? `\n[CURRENT WORKSPACE DISCOVERED FROM THE SERVER]\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`
-        : "\n[CURRENT WORKSPACE]\nNo readable project files were discovered on the server.\n";
+      const workspaceDiscovery = await getWorkspaceContext(workspace);
       const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
         agentModeInstruction(agentMode) +
-        ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceContext;
+        ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceDiscovery.context;
 
       // Determine provider from modelId if not explicitly matched
       let effectiveProvider = provider;
@@ -839,7 +854,7 @@ async function startServer() {
         metadata: {
           skillsActiveCount: activeSkillsCount,
           trainingExamplesCount: activeExamplesCount,
-          workspaceFilesDiscovered: workspaceFiles.length
+          workspaceFilesDiscovered: workspaceDiscovery.fileCount
         }
       });
     } catch (error: any) {
@@ -1004,11 +1019,7 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
-      const discoveredWorkspace = await discoverWorkspace(process.cwd());
-      const workspaceFiles = discoveredWorkspace.length > 0 ? discoveredWorkspace : (Array.isArray(workspace) ? workspace : []);
-      const workspaceContext = workspaceFiles.length > 0
-        ? `\n[CURRENT WORKSPACE DISCOVERED FROM THE SERVER]\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}`
-        : "";
+      const workspaceDiscovery = await getWorkspaceContext(workspace);
 
       let report = "";
       let sources: { title: string; url: string; snippet?: string }[] = [];
@@ -1019,7 +1030,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           model: modelId && modelId.startsWith('gemini') ? modelId : 'gemini-3.8-flash',
           contents: `Conduct deep research and analysis on: "${query}". Depth: ${depth}. Focus area: ${focusArea}. Provide authoritative comparative breakdown with tables and concrete takeaways.`,
           config: {
-            systemInstruction: systemInstruction + workspaceContext,
+            systemInstruction: systemInstruction + workspaceDiscovery.context,
             tools: [{ googleSearch: {} }],
           }
         });
@@ -1041,7 +1052,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           model: modelId && modelId.startsWith('gemini') ? modelId : 'gemini-3.8-flash',
           contents: `Conduct deep research and comparative analysis on: "${query}". Depth: ${depth}. Focus area: ${focusArea}. Structure with Executive Summary, Comparative Table, Trade-offs, Architectural Recommendations, and Key Findings.`,
           config: {
-            systemInstruction: systemInstruction + workspaceContext,
+            systemInstruction: systemInstruction + workspaceDiscovery.context,
           }
         });
         report = fallback.text || "";
