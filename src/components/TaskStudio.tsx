@@ -50,7 +50,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
     setActiveView,
     setActiveActivity,
     llmConfig,
-    agentMode
+    agentMode,
+    fileTree
   } = useIDE();
 
   const [input, setInput] = useState('');
@@ -120,6 +121,11 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
 
     try {
       const activeModel = getModelById(selectedTaskModelId);
+      const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
+        nodes.flatMap(node => node.type === 'folder'
+          ? flattenFiles(node.children || [])
+          : [{ path: node.path, content: node.content || '', language: node.language }]);
+      const workspace = flattenFiles(fileTree);
 
       if (activeTaskType === 'image') {
         setLoadingPhase(`Synthesizing visual assets with ${activeModel.name}...`);
@@ -133,7 +139,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             engine: imageEngine,
             modelId: selectedTaskModelId,
             keys: llmConfig?.keys,
-            agentMode
+            agentMode,
+            workspace
           })
         });
 
@@ -167,7 +174,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             focusArea: 'technical',
             modelId: selectedTaskModelId,
             keys: llmConfig?.keys,
-            agentMode
+            agentMode,
+            workspace
           })
         });
 
@@ -210,7 +218,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             modelId: selectedTaskModelId,
             provider: activeModel?.provider,
             keys: llmConfig?.keys,
-            agentMode
+            agentMode,
+            workspace
           })
         });
 

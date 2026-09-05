@@ -67,9 +67,9 @@ function toDiscoveredModel(model: any, provider: string): any {
 function agentModeInstruction(mode: string = "agent"): string {
   switch (mode) {
     case "plan":
-      return "\n[AGENT MODE: PLAN]\nAnalyze the request and produce a clear, ordered implementation plan. Do not claim that changes were made and do not execute actions.";
+      return "\n[AGENT MODE: PLAN]\nFirst inspect the supplied workspace context automatically, then analyze the request and produce a clear, ordered implementation plan. Do not claim that changes were made and do not execute actions.";
     case "ask":
-      return "\n[AGENT MODE: ASK]\nAnswer the user's question directly and explain relevant trade-offs. Do not take action or invent completed work.";
+      return "\n[AGENT MODE: ASK]\nFirst inspect the supplied workspace context automatically when relevant, then answer the user's question directly and explain relevant trade-offs. Do not take action or invent completed work.";
     case "autonomous":
       return "\n[AGENT MODE: AUTONOMOUS]\nTake the request from start to finish with minimal clarification. Make reasonable decisions, provide concrete results, and clearly state any assumptions or blockers. When code changes are needed, return executable file actions using the DevPilotX action protocol below.";
     case "agent":
@@ -494,12 +494,12 @@ async function startServer() {
       const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const workspaceContext = Array.isArray(workspace) && (agentMode === "agent" || agentMode === "autonomous")
+      const workspaceContext = Array.isArray(workspace)
         ? `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`
         : "";
       const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
         agentModeInstruction(agentMode) +
-        ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL + workspaceContext : "");
+        ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceContext;
 
       // Determine provider from modelId if not explicitly matched
       let effectiveProvider = provider;
@@ -933,7 +933,7 @@ async function startServer() {
   // Dedicated Deep Research & Grounded Web Search Endpoint
   app.post("/api/research", async (req, res) => {
     try {
-      const { query, depth = "detailed", focusArea = "technical", modelId = "gemini-3.8-flash", keys, agentMode } = req.body;
+      const { query, depth = "detailed", focusArea = "technical", modelId = "gemini-3.8-flash", keys, agentMode, workspace } = req.body;
       if (!query || typeof query !== 'string' || !query.trim()) {
         return res.status(400).json({ error: "Research query is required." });
       }
@@ -963,6 +963,9 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
+      const workspaceContext = Array.isArray(workspace)
+        ? `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}`
+        : "";
 
       let report = "";
       let sources: { title: string; url: string; snippet?: string }[] = [];
@@ -973,7 +976,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           model: modelId && modelId.startsWith('gemini') ? modelId : 'gemini-3.8-flash',
           contents: `Conduct deep research and analysis on: "${query}". Depth: ${depth}. Focus area: ${focusArea}. Provide authoritative comparative breakdown with tables and concrete takeaways.`,
           config: {
-            systemInstruction,
+            systemInstruction: systemInstruction + workspaceContext,
             tools: [{ googleSearch: {} }],
           }
         });
@@ -995,7 +998,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           model: modelId && modelId.startsWith('gemini') ? modelId : 'gemini-3.8-flash',
           contents: `Conduct deep research and comparative analysis on: "${query}". Depth: ${depth}. Focus area: ${focusArea}. Structure with Executive Summary, Comparative Table, Trade-offs, Architectural Recommendations, and Key Findings.`,
           config: {
-            systemInstruction,
+            systemInstruction: systemInstruction + workspaceContext,
           }
         });
         report = fallback.text || "";
@@ -1017,7 +1020,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   // Dedicated Multimodal Task Chat Endpoint (Docs, Brainstorming, Specs, Non-Coding)
   app.post("/api/task-chat", async (req, res) => {
     try {
-      const { messages, taskType = "general", modelId = "gemini-3.7-flash", provider, keys, agentMode } = req.body;
+      const { messages, taskType = "general", modelId = "gemini-3.7-flash", provider, keys, agentMode, workspace } = req.body;
 
       let systemInstruction = "You are DevPilotX Studio, a specialized assistant for non-coding tasks including visual ideation, technical writing, system documentation, and strategic planning." + agentModeInstruction(agentMode);
       if (taskType === 'docs') {
@@ -1026,6 +1029,10 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
         systemInstruction = "You are DevPilotX Product Strategist & Brainstorming Partner. Help the user brainstorm innovative product concepts, UX workflows, market differentiators, feature matrices, and development roadmaps with creative clarity and structured prioritization.";
       } else if (taskType === 'research') {
         systemInstruction = "You are DevPilotX Research Intelligence. Provide objective analysis, comparative evaluations, and architectural trade-offs with clear structured findings.";
+      }
+      systemInstruction += agentModeInstruction(agentMode);
+      if (Array.isArray(workspace)) {
+        systemInstruction += `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}`;
       }
 
       const cleanMessages = (messages || [])
