@@ -40,7 +40,7 @@ export const MainLayout = () => {
     currentTab === 'ai' ||
     currentTab === 'skills' ||
     currentTab === 'extensions';
-  const targetWidthClass = isWideTab ? 'w-96' : 'w-80';
+  const targetWidthClass = isWideTab ? 'w-[389px]' : 'w-[325px]';
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#0D1117] text-[#C9D1D9] font-sans overflow-hidden">
