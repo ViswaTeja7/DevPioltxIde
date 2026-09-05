@@ -23,6 +23,34 @@ function createOpenRouterClient(apiKey: string, title: string): OpenAI {
   });
 }
 
+async function getAvailableOpenRouterFallback(openai: OpenAI, requestedModel: string): Promise<string | null> {
+  const models = await openai.models.list();
+  const availableIds = new Set(
+    models.data
+      .map(model => model.id)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  if (availableIds.has(requestedModel)) {
+    return requestedModel;
+  }
+
+  const preferredModels = requestedModel.endsWith(":free")
+    ? [
+        "deepseek/deepseek-r1-0528:free",
+        "deepseek/deepseek-chat-v3-0324:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen-2.5-coder-32b-instruct:free",
+      ]
+    : [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3.5-haiku",
+        "meta-llama/llama-3.3-70b-instruct:free",
+      ];
+
+  return preferredModels.find(id => availableIds.has(id)) || null;
+}
+
 function generateVisualAssetFallback(prompt: string, style: string = 'modern', aspectRatio: string = '1:1') {
   let width = 800;
   let height = 800;
@@ -229,7 +257,14 @@ async function startServer() {
 
         const openai = createOpenRouterClient(rawKey, "DevPilotX");
 
-        const testModel = modelId && !modelId.startsWith("gemini") ? modelId : "deepseek/deepseek-r1:free";
+        const requestedModel = modelId && !modelId.startsWith("gemini") ? modelId : "deepseek/deepseek-r1:free";
+        const testModel = await getAvailableOpenRouterFallback(openai, requestedModel);
+        if (!testModel) {
+          return res.status(404).json({
+            success: false,
+            error: `The requested OpenRouter model "${requestedModel}" is unavailable and no fallback model was found.`
+          });
+        }
         const completion = await openai.chat.completions.create({
           model: testModel,
           max_tokens: 15,
@@ -432,6 +467,12 @@ async function startServer() {
           }
           
           try {
+            const requestedModel = targetModel;
+            const availableModel = await getAvailableOpenRouterFallback(openai, requestedModel);
+            if (availableModel) {
+              targetModel = availableModel;
+            }
+
             const openRouterMessages = (targetModel.includes('o1') || targetModel.includes('o3-mini'))
               ? [{ role: "developer", content: enhancedSystemPrompt }, ...cleanMessages]
               : [{ role: "system", content: enhancedSystemPrompt }, ...cleanMessages];
@@ -453,10 +494,10 @@ async function startServer() {
             } catch (initialErr: any) {
               const is404 = initialErr?.status === 404 || initialErr?.message?.includes("No endpoints found");
               if (is404) {
-                // Try fallback to active Meta Llama 3.3 or DeepSeek Free
-                const fallbackSlug = targetModel.endsWith(":free") 
-                  ? "meta-llama/llama-3.3-70b-instruct:free" 
-                  : "meta-llama/llama-3.3-70b-instruct";
+                const fallbackSlug = await getAvailableOpenRouterFallback(openai, requestedModel);
+                if (!fallbackSlug || fallbackSlug === targetModel) {
+                  throw initialErr;
+                }
                 
                 console.warn(`[OpenRouter] 404 on ${targetModel}, retrying with ${fallbackSlug}...`);
                 try {
