@@ -13,7 +13,7 @@ export const PanelArea = () => {
   const [terminalOutput, setTerminalOutput] = useState('');
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'closed'>('connecting');
   const socketRef = useRef<WebSocket | null>(null);
-  const terminalInputRef = useRef<HTMLInputElement>(null);
+  const terminalInputRef = useRef<HTMLDivElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export const PanelArea = () => {
     }
   };
 
-  const handleTerminalKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTerminalKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (event.key === 'Enter') sendInput('\r');
     else if (event.key === 'Backspace') sendInput('\b');
@@ -106,21 +106,20 @@ export const PanelArea = () => {
       <div className="flex-1 overflow-hidden p-3 font-mono text-[11px] text-[#8B949E]">
         {activePanel === 'terminal' && (
           <div className="flex flex-col h-full" onClick={() => terminalInputRef.current?.focus()}>
-            <div ref={outputRef} className="flex-1 overflow-y-auto whitespace-pre-wrap break-words text-[#C9D1D9]">
-              {terminalOutput || 'Connecting to the workspace shell...'}
-            </div>
-            <input
+            <div
               ref={terminalInputRef}
-              type="text"
+              tabIndex={0}
+              role="textbox"
               aria-label="Terminal input"
               onKeyDown={handleTerminalKeyDown}
               onPaste={event => {
                 event.preventDefault();
                 sendInput(event.clipboardData.getData('text'));
               }}
-              className="absolute opacity-0 pointer-events-none"
-              autoFocus
-            />
+              className="flex-1 overflow-y-auto whitespace-pre-wrap break-words text-[#C9D1D9] outline-none"
+            >
+              {terminalOutput || 'Connecting to the workspace shell...'}
+            </div>
           </div>
         )}
         {activePanel === 'problems' && <div>No problems have been detected in the workspace.</div>}
