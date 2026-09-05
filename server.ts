@@ -71,10 +71,38 @@ function agentModeInstruction(mode: string = "agent"): string {
     case "ask":
       return "\n[AGENT MODE: ASK]\nAnswer the user's question directly and explain relevant trade-offs. Do not take action or invent completed work.";
     case "autonomous":
-      return "\n[AGENT MODE: AUTONOMOUS]\nTake the request from start to finish with minimal clarification. Make reasonable decisions, provide concrete results, and clearly state any assumptions or blockers.";
+      return "\n[AGENT MODE: AUTONOMOUS]\nTake the request from start to finish with minimal clarification. Make reasonable decisions, provide concrete results, and clearly state any assumptions or blockers. When code changes are needed, return executable file actions using the DevPilotX action protocol below.";
     case "agent":
     default:
-      return "\n[AGENT MODE: AGENT]\nAct as an implementation-focused coding agent. Provide concrete, production-ready changes or actionable steps, while being explicit about what can and cannot be executed.";
+      return "\n[AGENT MODE: AGENT]\nAct as an implementation-focused coding agent. Inspect the supplied workspace, then return production-ready file actions for requested changes using the DevPilotX action protocol below. Never claim a file was changed unless you returned an action for it.";
+  }
+}
+
+const AGENT_ACTION_PROTOCOL = `
+[DEVPILOTX ACTION PROTOCOL]
+For Agent and Autonomous modes, include any requested code changes in a JSON code block tagged \`\`\`devpilotx-actions.
+The block must contain an array of actions. Supported actions:
+{"type":"edit_file","path":"/relative/path","content":"complete new file contents","reason":"short explanation"}
+{"type":"create_file","path":"/relative/path","content":"complete new file contents","reason":"short explanation"}
+{"type":"delete_file","path":"/relative/path","reason":"short explanation"}
+{"type":"run_command","command":"npm test","reason":"short explanation"}
+Use complete file contents, never partial patches or ellipses. Only include run_command when it is safe and directly required; the host will ask for confirmation before executing commands. Keep the user-facing explanation outside the JSON block. If no file change is needed, omit the block.
+`;
+
+function parseAgentActions(text: string, mode: string): { text: string; actions: any[] } {
+  if (mode !== "agent" && mode !== "autonomous") return { text, actions: [] };
+  const match = text.match(/```devpilotx-actions\s*([\s\S]*?)```/i);
+  if (!match) return { text, actions: [] };
+  try {
+    const parsed = JSON.parse(match[1]);
+    const actions = Array.isArray(parsed) ? parsed : Array.isArray(parsed.actions) ? parsed.actions : [];
+    const validActions = actions.filter((action: any) =>
+      action && ['edit_file', 'create_file', 'delete_file', 'run_command'].includes(action.type) &&
+      (typeof action.path === 'string' || typeof action.command === 'string')
+    );
+    return { text: text.replace(match[0], '').trim(), actions: validActions };
+  } catch {
+    return { text, actions: [] };
   }
 }
 
@@ -463,10 +491,15 @@ async function startServer() {
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode } = req.body;
+      const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) + agentModeInstruction(agentMode);
+      const workspaceContext = Array.isArray(workspace) && (agentMode === "agent" || agentMode === "autonomous")
+        ? `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`
+        : "";
+      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
+        agentModeInstruction(agentMode) +
+        ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL + workspaceContext : "");
 
       // Determine provider from modelId if not explicitly matched
       let effectiveProvider = provider;
@@ -759,8 +792,10 @@ async function startServer() {
       const activeSkillsCount = (skills || []).filter((s: any) => s && s.enabled).length;
       const activeExamplesCount = (trainingExamples || []).filter((e: any) => e && e.enabled).length;
 
+      const parsedAgentResponse = parseAgentActions(responseText, agentMode);
       res.json({ 
-        text: responseText,
+        text: parsedAgentResponse.text,
+        actions: parsedAgentResponse.actions,
         metadata: {
           skillsActiveCount: activeSkillsCount,
           trainingExamplesCount: activeExamplesCount

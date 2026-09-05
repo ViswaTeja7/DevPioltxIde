@@ -21,7 +21,11 @@ export const AIAssistant = () => {
     knowledgeDocs,
     addTrainingExample,
     setActiveView,
-    agentMode
+    agentMode,
+    fileTree,
+    updateFileContent,
+    createNewFile,
+    deleteFile
   } = useIDE();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +55,11 @@ export const AIAssistant = () => {
     setIsLoading(true);
 
     try {
+      const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
+        nodes.flatMap(node => node.type === 'folder'
+          ? flattenFiles(node.children || [])
+          : [{ path: node.path, content: node.content || '', language: node.language }]);
+      const workspace = flattenFiles(fileTree);
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,7 +72,8 @@ export const AIAssistant = () => {
           skills: skills.filter(s => s.enabled),
           trainingProfile,
           trainingExamples: trainingExamples.filter(e => e.enabled),
-          knowledgeDocs: knowledgeDocs.filter(d => d.enabled)
+          knowledgeDocs: knowledgeDocs.filter(d => d.enabled),
+          workspace
         })
       });
 
@@ -72,9 +82,49 @@ export const AIAssistant = () => {
         throw new Error(data.error || 'Failed to generate response');
       }
 
+      const appliedActions: string[] = [];
+      const pendingCommands: string[] = [];
+      const normalizePath = (path: string) => path.replace(/^\.?[\\/]+/, '/').replace(/\\/g, '/');
+      const findFile = (path: string): { id: string; path: string } | undefined => {
+        const normalized = normalizePath(path);
+        const search = (nodes: typeof fileTree): { id: string; path: string } | undefined => {
+          for (const node of nodes) {
+            if (node.type === 'file' && normalizePath(node.path) === normalized) {
+              return { id: node.id, path: node.path };
+            }
+            const nested = node.children ? search(node.children) : undefined;
+            if (nested) return nested;
+          }
+          return undefined;
+        };
+        return search(fileTree);
+      };
+
+      for (const action of Array.isArray(data.actions) ? data.actions : []) {
+        const file = action.path ? findFile(action.path) : undefined;
+        if (action.type === 'edit_file' && file?.id) {
+          updateFileContent(file.id, String(action.content || ''));
+          appliedActions.push(`Updated ${file.path}`);
+        } else if (action.type === 'create_file' && action.path) {
+          const path = normalizePath(action.path);
+          const name = path.split('/').pop() || 'untitled.txt';
+          createNewFile(name, String(action.content || ''));
+          appliedActions.push(`Created ${path}`);
+        } else if (action.type === 'delete_file' && file?.id) {
+          deleteFile(file.id);
+          appliedActions.push(`Deleted ${file.path}`);
+        } else if (action.type === 'run_command' && action.command) {
+          pendingCommands.push(String(action.command));
+        }
+      }
+
+      const actionSummary = appliedActions.length || pendingCommands.length
+        ? `\n\n**Agent actions**\n${appliedActions.map(action => `- ${action}`).join('\n')}${pendingCommands.length ? `\n${pendingCommands.map(command => `- \`${command}\` (command execution requires confirmation in the terminal)`).join('\n')}` : ''}`
+        : '';
+
       addChatMessage({
         role: 'agent',
-        content: data.text,
+        content: `${data.text || 'Agent completed the request.'}${actionSummary}`,
         modelId: llmConfig.selectedModelId,
         modelName: selectedModel.name,
         provider: selectedModel.providerLabel

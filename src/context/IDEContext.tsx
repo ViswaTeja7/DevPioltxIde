@@ -599,7 +599,12 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateFileContent = (fileId: string, content: string) => {
-    setOpenFiles(openFiles.map(f => f.id === fileId ? { ...f, content } : f));
+    setOpenFiles(prev => prev.map(f => f.id === fileId ? { ...f, content } : f));
+    const updateTree = (nodes: FileNode[]): FileNode[] => nodes.map(node => {
+      if (node.id === fileId) return { ...node, content };
+      return node.children ? { ...node, children: updateTree(node.children) } : node;
+    });
+    setFileTree(prev => updateTree(prev));
   };
 
   return (
