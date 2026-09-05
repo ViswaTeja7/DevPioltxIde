@@ -368,7 +368,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             <button
               onClick={() => {
                 setActiveView('editor');
-                setActiveActivity('tasks');
+                setActiveActivity(null);
               }}
               title="Dock in Sidebar"
               className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-xs text-[#C9D1D9] hover:text-white transition-colors"
