@@ -3,6 +3,9 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
+import { createServer } from "http";
+import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import { WebSocketServer, WebSocket } from "ws";
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -1067,7 +1070,74 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = createServer(app);
+  const terminalServer = new WebSocketServer({ noServer: true });
+
+  httpServer.on("upgrade", (request, socket, head) => {
+    const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
+    if (requestUrl.pathname !== "/ws/terminal") {
+      socket.destroy();
+      return;
+    }
+
+    terminalServer.handleUpgrade(request, socket, head, ws => {
+      terminalServer.emit("connection", ws, request);
+    });
+  });
+
+  terminalServer.on("connection", (ws: WebSocket) => {
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash");
+    const shellArgs = isWindows ? [] : ["-i"];
+    let shellProcess: ChildProcessWithoutNullStreams;
+
+    try {
+      shellProcess = spawn(shell, shellArgs, {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: "pipe",
+        windowsHide: true,
+      });
+    } catch (error: any) {
+      ws.send(JSON.stringify({ type: "error", message: error?.message || "Unable to start shell." }));
+      ws.close();
+      return;
+    }
+
+    const send = (type: string, data: string) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type, data }));
+      }
+    };
+
+    send("ready", `DevPilotX terminal connected to ${shell}\r\n`);
+    shellProcess.stdout.on("data", data => send("output", data.toString()));
+    shellProcess.stderr.on("data", data => send("output", data.toString()));
+    shellProcess.on("error", error => send("error", error.message));
+    shellProcess.on("exit", (code, signal) => {
+      send("exit", `\r\n[process exited${code === null ? ` with ${signal}` : ` with code ${code}`}]\r\n`);
+      if (ws.readyState === WebSocket.OPEN) ws.close();
+    });
+
+    ws.on("message", raw => {
+      try {
+        const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
+        if (message.type === "input" && typeof message.data === "string") {
+          shellProcess.stdin.write(message.data);
+        } else if (message.type === "interrupt") {
+          shellProcess.kill("SIGINT");
+        }
+      } catch {
+        send("error", "Invalid terminal message.");
+      }
+    });
+
+    ws.on("close", () => {
+      if (!shellProcess.killed) shellProcess.kill();
+    });
+  });
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
