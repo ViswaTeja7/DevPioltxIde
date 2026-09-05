@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useIDE } from '../context/IDEContext';
-import { Send, Sparkles, Code, GitPullRequest, Settings, Terminal, Bot, Copy, Check, Info, ShieldAlert, Cpu, BrainCircuit, GraduationCap } from 'lucide-react';
+import { Send, Settings, Copy, Check, BrainCircuit, GraduationCap } from 'lucide-react';
 import { ModelSelectorDropdown } from './ModelSelectorDropdown';
 import { ModelIcon } from './ModelIcon';
 import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
@@ -121,13 +121,6 @@ export const AIAssistant = () => {
   };
 
   const activeSkillsCount = skills.filter(s => s.enabled).length;
-
-  const quickActions = [
-    { label: 'Generate API Route', prompt: 'Write an Express TypeScript API route with error handling and validation.', icon: Code },
-    { label: 'Refactor Architecture', prompt: 'Review this project architecture and propose clean separation of concerns.', icon: GitPullRequest },
-    { label: 'Debug & Analyze', prompt: 'Analyze potential runtime bottlenecks and propose optimizations.', icon: Terminal },
-    { label: 'Explain Code', prompt: 'Explain the codebase structure and how state is managed across components.', icon: Sparkles },
-  ];
 
   return (
     <div className="flex flex-col h-full bg-[#161B22] border-l border-[#30363D]">
@@ -282,23 +275,8 @@ export const AIAssistant = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Prompts & Composer Area */}
+      {/* Composer Area */}
       <div className="p-3 bg-[#0D1117] border-t border-[#30363D] shrink-0">
-        {/* Quick action buttons */}
-        <div className="flex gap-1.5 mb-2.5 overflow-x-auto pb-1 scrollbar-none">
-          {quickActions.map((action, i) => (
-            <button
-              key={i}
-              onClick={() => handleSend(undefined, action.prompt)}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-[10px] text-[#C9D1D9] hover:text-white transition-colors disabled:opacity-50"
-            >
-              <action.icon size={11} className="text-[#58A6FF]" />
-              {action.label}
-            </button>
-          ))}
-        </div>
-
         {/* Input Form with Model Indicator */}
         <form onSubmit={(e) => handleSend(e)} className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5">
           <textarea
