@@ -368,7 +368,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             <button
               onClick={() => {
                 setActiveView('editor');
-                setActiveActivity(null);
+                setActiveActivity('tasks');
               }}
               title="Dock in Sidebar"
               className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-xs text-[#C9D1D9] hover:text-white transition-colors"
@@ -378,7 +378,10 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             </button>
           ) : (
             <button
-              onClick={() => setActiveView('studio')}
+              onClick={() => {
+                setActiveView('studio');
+                setActiveActivity(null);
+              }}
               title="Expand to Full Window"
               className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1F6FEB]/20 hover:bg-[#1F6FEB]/30 border border-[#1F6FEB]/40 text-xs text-[#58A6FF] hover:text-white transition-colors"
             >
