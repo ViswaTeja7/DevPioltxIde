@@ -1,0 +1,6 @@
+{
+  "name": "DevPilotX IDE",
+  "description": "An AI-driven IDE that acts as a virtual full-stack developer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

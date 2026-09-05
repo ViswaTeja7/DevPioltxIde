@@ -1,11 +1,17 @@
-<div align="center">
+# DevPilotX
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+A modern, high-density, AI-assisted development environment running natively in the browser.
 
-  <h1>Built with AI Studio</h2>
+## Features
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+- **Project Dashboard**: A dedicated cockpit view featuring cyclomatic complexity heatmaps, automated test coverage trends, CI/CD integrations, and intelligent batch-fix previews.
+- **AI Assistant**: Built-in multi-model chat (supports Gemini, OpenRouter, Ollama, Groq) with IDE context awareness.
+- **Monaco Editor**: Industry-standard code editor with syntax highlighting, auto-completion, and minimap.
+- **Full-Stack Architecture**: React front-end powered by an Express backend for secure API management.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Project Dashboard Capabilities
 
-</div>
+- Visualizes repository complexity and file language distributions
+- Highlights specific "hotspots" in the codebase
+- CI/CD integration with GitHub Actions (`.github/workflows/ci.yml`)
+- Provides AI-driven code remediation and review metrics
