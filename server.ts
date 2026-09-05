@@ -4,6 +4,25 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 
+function normalizeOpenRouterApiKey(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .replace(/^["'`]|["'`]$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+}
+
+function createOpenRouterClient(apiKey: string, title: string): OpenAI {
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey,
+    defaultHeaders: {
+      "HTTP-Referer": "https://devpilotx.app",
+      "X-Title": title,
+    }
+  });
+}
+
 function generateVisualAssetFallback(prompt: string, style: string = 'modern', aspectRatio: string = '1:1') {
   let width = 800;
   let height = 800;
@@ -203,20 +222,12 @@ async function startServer() {
       }
 
       if (provider === "openrouter") {
-        const rawKey = (keys?.openrouter || process.env.OPENROUTER_API_KEY || "").trim().replace(/^["'`]|["'`]$/g, '');
+        const rawKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
         if (!rawKey) {
           return res.status(400).json({ success: false, error: "OpenRouter API key is empty. Please enter your sk-or-v1-... key." });
         }
 
-        const openai = new OpenAI({
-          baseURL: "https://openrouter.ai/api/v1",
-          apiKey: rawKey,
-          defaultHeaders: {
-            "HTTP-Referer": "https://devpilotx.app",
-            "X-Title": "DevPilotX",
-            "Authorization": `Bearer ${rawKey}`
-          }
-        });
+        const openai = createOpenRouterClient(rawKey, "DevPilotX");
 
         const testModel = modelId && !modelId.startsWith("gemini") ? modelId : "deepseek/deepseek-r1:free";
         const completion = await openai.chat.completions.create({
@@ -404,19 +415,11 @@ async function startServer() {
           }
         }
       } else if (effectiveProvider === "openrouter") {
-        const rawApiKey = (keys?.openrouter || process.env.OPENROUTER_API_KEY || "").trim().replace(/^["'`]|["'`]$/g, '');
+        const rawApiKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
         if (!rawApiKey) {
           responseText = `⚠️ **OpenRouter API Key Required**\n\nTo use **${modelId || 'this model'}**, please enter your OpenRouter API key in **Settings > Provider Credentials**.\n\n*Or switch to built-in **Gemini 3.7 Flash** which is active and ready.*`;
         } else {
-          const openai = new OpenAI({
-            baseURL: "https://openrouter.ai/api/v1",
-            apiKey: rawApiKey,
-            defaultHeaders: {
-              "HTTP-Referer": "https://devpilotx.app",
-              "X-Title": "DevPilotX IDE",
-              "Authorization": `Bearer ${rawApiKey}`
-            }
-          });
+          const openai = createOpenRouterClient(rawApiKey, "DevPilotX IDE");
           let targetModel = modelId || "anthropic/claude-3.7-sonnet";
           
           // Map retired or provider-unavailable slugs to active equivalents
@@ -863,17 +866,9 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
         resolvedModel.startsWith("mistralai/");
 
       if (isOpenRouter) {
-        const rawKey = (keys?.openrouter || process.env.OPENROUTER_API_KEY || "").trim().replace(/^["'`]|["'`]$/g, '');
+        const rawKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
         if (rawKey) {
-          const openai = new OpenAI({
-            baseURL: "https://openrouter.ai/api/v1",
-            apiKey: rawKey,
-            defaultHeaders: {
-              "HTTP-Referer": "https://devpilotx.app",
-              "X-Title": "DevPilotX Multimodal Studio",
-              "Authorization": `Bearer ${rawKey}`
-            }
-          });
+          const openai = createOpenRouterClient(rawKey, "DevPilotX Multimodal Studio");
           const completion = await openai.chat.completions.create({
             model: resolvedModel,
             messages: [{ role: "system", content: systemInstruction }, ...cleanMessages],
