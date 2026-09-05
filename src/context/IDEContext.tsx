@@ -12,7 +12,8 @@ import {
   AgentSkill,
   TrainingExample,
   KnowledgeDoc,
-  AgentTrainingProfile
+  AgentTrainingProfile,
+  AgentMode
 } from '../types';
 import { initialFileTree } from '../data';
 import { AI_MODELS, getModelById, DEFAULT_MODEL_ID } from '../constants/models';
@@ -62,6 +63,8 @@ interface IDEState {
   setActiveView: (view: ActiveView) => void;
   toggleSidebar: (tab?: ActivityTab) => void;
   togglePanel: (tab?: PanelTab) => void;
+  agentMode: AgentMode;
+  setAgentMode: (mode: AgentMode) => void;
   // Trainable Agent & Claude-style Skills System
   skills: AgentSkill[];
   addSkill: (skill: Omit<AgentSkill, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -202,6 +205,10 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     }
   ]);
   const [llmConfig, setLLMConfig] = useState<LLMConfig>(getInitialLLMConfig);
+  const [agentMode, setAgentModeState] = useState<AgentMode>(() => {
+    const saved = localStorage.getItem('devpilotx_agent_mode');
+    return saved === 'plan' || saved === 'ask' || saved === 'agent' || saved === 'autonomous' ? saved : 'agent';
+  });
   const [discoveredModels, setDiscoveredModels] = useState<AIModel[]>([]);
 
   // Trainable Agent & Claude-style Skills System State
@@ -384,6 +391,11 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       }
       return updated;
     });
+  };
+
+  const setAgentMode = (mode: AgentMode) => {
+    setAgentModeState(mode);
+    localStorage.setItem('devpilotx_agent_mode', mode);
   };
 
   const openFile = (file: FileNode) => {
@@ -630,6 +642,8 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
         setActiveView,
         toggleSidebar,
         togglePanel,
+        agentMode,
+        setAgentMode,
         // Skills and Trainable Agent
         skills,
         addSkill,

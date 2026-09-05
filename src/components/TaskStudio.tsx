@@ -32,6 +32,7 @@ import {
   Eye,
   Bot
 } from 'lucide-react';
+import { AgentModeSelector } from './AgentModeSelector';
 
 interface TaskStudioProps {
   mode?: 'sidebar' | 'fullscreen';
@@ -48,7 +49,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
     activeView,
     setActiveView,
     setActiveActivity,
-    llmConfig
+    llmConfig,
+    agentMode
   } = useIDE();
 
   const [input, setInput] = useState('');
@@ -130,7 +132,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             style: imageStyle,
             engine: imageEngine,
             modelId: selectedTaskModelId,
-            keys: llmConfig?.keys
+            keys: llmConfig?.keys,
+            agentMode
           })
         });
 
@@ -163,7 +166,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             depth: researchDepth,
             focusArea: 'technical',
             modelId: selectedTaskModelId,
-            keys: llmConfig?.keys
+            keys: llmConfig?.keys,
+            agentMode
           })
         });
 
@@ -205,7 +209,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             taskType: activeTaskType,
             modelId: selectedTaskModelId,
             provider: activeModel?.provider,
-            keys: llmConfig?.keys
+            keys: llmConfig?.keys,
+            agentMode
           })
         });
 
@@ -356,6 +361,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             onSelectModel={(m) => setSelectedTaskModelId(m.id)}
             taskType={activeTaskType}
           />
+          <AgentModeSelector />
 
           {/* Toggle Fullscreen / Dock */}
           {isFullscreen ? (

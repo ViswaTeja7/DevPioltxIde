@@ -23,6 +23,7 @@ export type PanelTab = 'terminal' | 'output' | 'debug' | 'problems';
 export type ActiveView = 'editor' | 'dashboard' | 'studio' | 'skills';
 
 export type TaskType = 'image' | 'research' | 'docs' | 'brainstorm' | 'general';
+export type AgentMode = 'plan' | 'ask' | 'agent' | 'autonomous';
 
 export type SkillCategory = 'frontend' | 'backend' | 'testing' | 'security' | 'architecture' | 'devops' | 'documentation' | 'custom';
 
@@ -140,4 +141,3 @@ export interface LLMConfig {
     groq: string;
   };
 }
-

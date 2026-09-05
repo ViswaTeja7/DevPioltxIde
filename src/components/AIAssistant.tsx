@@ -4,6 +4,7 @@ import { Send, Sparkles, Code, GitPullRequest, Settings, Terminal, Bot, Copy, Ch
 import { ModelSelectorDropdown } from './ModelSelectorDropdown';
 import { ModelIcon } from './ModelIcon';
 import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { AgentModeSelector } from './AgentModeSelector';
 
 export const AIAssistant = () => {
   const { 
@@ -19,7 +20,8 @@ export const AIAssistant = () => {
     trainingExamples,
     knowledgeDocs,
     addTrainingExample,
-    setActiveView
+    setActiveView,
+    agentMode
   } = useIDE();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +59,7 @@ export const AIAssistant = () => {
           provider: llmConfig.provider,
           modelId: llmConfig.selectedModelId,
           keys: llmConfig.keys,
+          agentMode,
           skills: skills.filter(s => s.enabled),
           trainingProfile,
           trainingExamples: trainingExamples.filter(e => e.enabled),
@@ -147,6 +150,7 @@ export const AIAssistant = () => {
         
         {/* Model Selector Dropdown Pill */}
         <ModelSelectorDropdown variant="pill" />
+        <AgentModeSelector />
       </div>
       
       {/* Messages List */}
@@ -333,4 +337,3 @@ export const AIAssistant = () => {
     </div>
   );
 };
-

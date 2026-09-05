@@ -64,6 +64,20 @@ function toDiscoveredModel(model: any, provider: string): any {
   };
 }
 
+function agentModeInstruction(mode: string = "agent"): string {
+  switch (mode) {
+    case "plan":
+      return "\n[AGENT MODE: PLAN]\nAnalyze the request and produce a clear, ordered implementation plan. Do not claim that changes were made and do not execute actions.";
+    case "ask":
+      return "\n[AGENT MODE: ASK]\nAnswer the user's question directly and explain relevant trade-offs. Do not take action or invent completed work.";
+    case "autonomous":
+      return "\n[AGENT MODE: AUTONOMOUS]\nTake the request from start to finish with minimal clarification. Make reasonable decisions, provide concrete results, and clearly state any assumptions or blockers.";
+    case "agent":
+    default:
+      return "\n[AGENT MODE: AGENT]\nAct as an implementation-focused coding agent. Provide concrete, production-ready changes or actionable steps, while being explicit about what can and cannot be executed.";
+  }
+}
+
 async function getAvailableOpenRouterFallback(openai: OpenAI, requestedModel: string): Promise<string | null> {
   const models = await openai.models.list();
   const availableIds = new Set(
@@ -449,10 +463,10 @@ async function startServer() {
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs } = req.body;
+      const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode } = req.body;
       let responseText = "";
 
-      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs);
+      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) + agentModeInstruction(agentMode);
 
       // Determine provider from modelId if not explicitly matched
       let effectiveProvider = provider;
@@ -780,11 +794,16 @@ async function startServer() {
   // Dedicated Image Generation Endpoint for Non-Coding Tasks
   app.post("/api/generate-image", async (req, res) => {
     try {
-      const { prompt, aspectRatio = "1:1", style = "modern", engine = "auto", modelId, keys } = req.body;
+      const { prompt, aspectRatio = "1:1", style = "modern", engine = "auto", modelId, keys, agentMode } = req.body;
       if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
         return res.status(400).json({ error: "Image generation prompt is required." });
       }
 
+      const effectivePrompt = agentMode === "plan"
+        ? `Visual implementation plan for: ${prompt}`
+        : agentMode === "ask"
+        ? `Visual concept explanation for: ${prompt}`
+        : prompt;
       let imageUrl: string | null = null;
       let modelUsed = "FLUX.1 Schnell";
       let textFeedback = "";
@@ -855,9 +874,9 @@ async function startServer() {
       // If not produced yet, use our high-fidelity Neural Image Generator with model-specific tuning
       if (!imageUrl) {
         try {
-          imageUrl = getNeuralImageUrl(prompt, aspectRatio, style, modelId);
+          imageUrl = getNeuralImageUrl(effectivePrompt, aspectRatio, style, modelId);
         } catch (_neuralErr) {
-          imageUrl = generateVisualAssetFallback(prompt, style, aspectRatio);
+          imageUrl = generateVisualAssetFallback(effectivePrompt, style, aspectRatio);
           modelUsed = "DevPilotX Procedural Vector Engine";
         }
       }
@@ -879,7 +898,7 @@ async function startServer() {
   // Dedicated Deep Research & Grounded Web Search Endpoint
   app.post("/api/research", async (req, res) => {
     try {
-      const { query, depth = "detailed", focusArea = "technical", modelId = "gemini-3.8-flash", keys } = req.body;
+      const { query, depth = "detailed", focusArea = "technical", modelId = "gemini-3.8-flash", keys, agentMode } = req.body;
       if (!query || typeof query !== 'string' || !query.trim()) {
         return res.status(400).json({ error: "Research query is required." });
       }
@@ -898,7 +917,7 @@ async function startServer() {
         }
       });
 
-      const systemInstruction = `You are DevPilotX Research Intelligence, an elite technical and multi-domain analyst.
+      const systemInstruction = `You are DevPilotX Research Intelligence, an elite technical and multi-domain analyst.${agentModeInstruction(agentMode)}
 Your mission: Conduct an exhaustive, objective, highly structured research briefing for: "${query}".
 
 Structure your report into clear Markdown sections:
@@ -963,9 +982,9 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   // Dedicated Multimodal Task Chat Endpoint (Docs, Brainstorming, Specs, Non-Coding)
   app.post("/api/task-chat", async (req, res) => {
     try {
-      const { messages, taskType = "general", modelId = "gemini-3.7-flash", provider, keys } = req.body;
+      const { messages, taskType = "general", modelId = "gemini-3.7-flash", provider, keys, agentMode } = req.body;
 
-      let systemInstruction = "You are DevPilotX Studio, a specialized assistant for non-coding tasks including visual ideation, technical writing, system documentation, and strategic planning.";
+      let systemInstruction = "You are DevPilotX Studio, a specialized assistant for non-coding tasks including visual ideation, technical writing, system documentation, and strategic planning." + agentModeInstruction(agentMode);
       if (taskType === 'docs') {
         systemInstruction = "You are DevPilotX Technical Writer & Documentation Specialist. Generate publication-ready technical specifications, Product Requirement Documents (PRDs), Architecture Decision Records (ADRs), API schemas, and README guides with pristine Markdown hierarchy, tables, and diagrams.";
       } else if (taskType === 'brainstorm') {
