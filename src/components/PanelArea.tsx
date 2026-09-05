@@ -55,10 +55,19 @@ export const PanelArea = () => {
     }
   };
 
+  const sendCommand = (command: string) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'command', data: command }));
+    }
+  };
+
   const handleTerminalKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      sendInput(`${terminalInput}\r`);
+      if (terminalInput.trim()) {
+        sendCommand(terminalInput);
+        setTerminalOutput(previous => `${previous}$ ${terminalInput}\r\n`);
+      }
       setTerminalInput('');
     } else if (event.key === 'Tab') {
       event.preventDefault();

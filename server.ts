@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { createServer } from "http";
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
+import os from "os";
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -1122,7 +1123,9 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     ws.on("message", raw => {
       try {
         const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
-        if (message.type === "input" && typeof message.data === "string") {
+        if (message.type === "command" && typeof message.data === "string") {
+          shellProcess.stdin.write(`${message.data}${isWindows ? "\r\n" : os.EOL}`);
+        } else if (message.type === "input" && typeof message.data === "string") {
           shellProcess.stdin.write(message.data);
         } else if (message.type === "interrupt") {
           shellProcess.kill("SIGINT");
