@@ -11,9 +11,10 @@ const terminalSocketUrl = () => {
 export const PanelArea = () => {
   const { activePanel, setActivePanel, setIsPanelOpen } = useIDE();
   const [terminalOutput, setTerminalOutput] = useState('');
+  const [terminalInput, setTerminalInput] = useState('');
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'closed'>('connecting');
   const socketRef = useRef<WebSocket | null>(null);
-  const terminalInputRef = useRef<HTMLDivElement>(null);
+  const terminalInputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,18 +55,31 @@ export const PanelArea = () => {
     }
   };
 
-  const handleTerminalKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (event.key === 'Enter') sendInput('\r');
-    else if (event.key === 'Backspace') sendInput('\b');
-    else if (event.key === 'Tab') sendInput('\t');
-    else if (event.key === 'ArrowUp') sendInput('\u001b[A');
-    else if (event.key === 'ArrowDown') sendInput('\u001b[B');
-    else if (event.key === 'ArrowRight') sendInput('\u001b[C');
-    else if (event.key === 'ArrowLeft') sendInput('\u001b[D');
-    else if (event.key === 'Escape') sendInput('\u001b');
-    else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) sendInput(event.key);
-    else if (event.ctrlKey && event.key.toLowerCase() === 'c') sendInput('\u0003');
+  const handleTerminalKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      sendInput(`${terminalInput}\r`);
+      setTerminalInput('');
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      sendInput('\t');
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      sendInput('\u001b[A');
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      sendInput('\u001b[B');
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      sendInput('\u001b[C');
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      sendInput('\u001b[D');
+    } else if (event.ctrlKey && event.key.toLowerCase() === 'c') {
+      event.preventDefault();
+      sendInput('\u0003');
+      setTerminalInput('');
+    }
   };
 
   const tabs: { id: PanelTab; label: string }[] = [
@@ -106,19 +120,26 @@ export const PanelArea = () => {
       <div className="flex-1 overflow-hidden p-3 font-mono text-[11px] text-[#8B949E]">
         {activePanel === 'terminal' && (
           <div className="flex flex-col h-full" onClick={() => terminalInputRef.current?.focus()}>
-            <div
-              ref={terminalInputRef}
-              tabIndex={0}
-              role="textbox"
-              aria-label="Terminal input"
-              onKeyDown={handleTerminalKeyDown}
-              onPaste={event => {
-                event.preventDefault();
-                sendInput(event.clipboardData.getData('text'));
-              }}
-              className="flex-1 overflow-y-auto whitespace-pre-wrap break-words text-[#C9D1D9] outline-none"
-            >
+            <div ref={outputRef} className="flex-1 overflow-y-auto whitespace-pre-wrap break-words text-[#C9D1D9]">
               {terminalOutput || 'Connecting to the workspace shell...'}
+            </div>
+            <div className="flex items-center gap-2 mt-2 border-t border-[#30363D] pt-2">
+              <span className="text-[#3FB950] shrink-0">$</span>
+              <input
+                ref={terminalInputRef}
+                type="text"
+                value={terminalInput}
+                onChange={event => setTerminalInput(event.target.value)}
+                onKeyDown={handleTerminalKeyDown}
+                onPaste={event => {
+                  event.preventDefault();
+                  setTerminalInput(previous => previous + event.clipboardData.getData('text'));
+                }}
+                placeholder={connectionState === 'connected' ? 'Type a command...' : 'Waiting for shell...'}
+                disabled={connectionState !== 'connected'}
+                className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-[#484F58] disabled:cursor-not-allowed"
+                autoFocus
+              />
             </div>
           </div>
         )}
