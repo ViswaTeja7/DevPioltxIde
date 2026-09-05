@@ -23,6 +23,43 @@ function createOpenRouterClient(apiKey: string, title: string): OpenAI {
   });
 }
 
+function modelIconType(id: string): string {
+  if (id.includes('claude') || id.startsWith('anthropic/')) return 'claude';
+  if (id.includes('deepseek')) return 'deepseek';
+  if (id.includes('llama') || id.startsWith('meta-llama/')) return 'meta';
+  if (id.includes('qwen')) return 'qwen';
+  if (id.includes('mistral')) return 'mistral';
+  if (id.includes('minimax')) return 'minimax';
+  if (id.includes('gemini')) return 'gemini';
+  if (id.includes('gpt') || id.startsWith('openai/')) return 'openai';
+  if (id.includes('nvidia') || id.includes('nemotron')) return 'nvidia';
+  if (id.includes('groq')) return 'groq';
+  return 'openai';
+}
+
+function toDiscoveredModel(model: any, provider: string): any {
+  const id = String(model.id || model.name || '');
+  const name = String(model.name || id);
+  const isFree = provider === 'openrouter' &&
+    (id.endsWith(':free') || (model.pricing?.prompt === '0' && model.pricing?.completion === '0'));
+
+  return {
+    id,
+    name,
+    provider,
+    providerLabel: provider === 'openrouter' ? 'OpenRouter' : provider === 'gemini' ? 'Google Gemini' : provider === 'groq' ? 'Groq' : 'Ollama',
+    description: model.description || `Available ${provider} model`,
+    tags: ['Live catalog', provider],
+    badge: isFree ? 'Free Tier' : 'Live',
+    contextWindow: model.context_length ? `${Math.round(model.context_length / 1000)}k tokens` : 'Provider catalog',
+    speed: 'Fast',
+    iconType: modelIconType(id),
+    requiresCustomKey: provider !== 'gemini',
+    isFree,
+    category: 'coding'
+  };
+}
+
 async function getAvailableOpenRouterFallback(openai: OpenAI, requestedModel: string): Promise<string | null> {
   const models = await openai.models.list();
   const availableIds = new Set(
@@ -233,6 +270,58 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  app.post("/api/provider-models", async (req, res) => {
+    const { keys } = req.body || {};
+    const discovered: any[] = [];
+    const errors: string[] = [];
+
+    const openRouterKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
+    if (openRouterKey) {
+      try {
+        const openai = createOpenRouterClient(openRouterKey, "DevPilotX Model Catalog");
+        const models = await openai.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "openrouter")));
+      } catch (error: any) {
+        errors.push(`OpenRouter: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const groqKey = String(keys?.groq || process.env.GROQ_API_KEY || "").trim();
+    if (groqKey) {
+      try {
+        const groq = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
+        const models = await groq.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "groq")));
+      } catch (error: any) {
+        errors.push(`Groq: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const geminiKey = String(keys?.gemini || process.env.GEMINI_API_KEY || "").trim();
+    if (geminiKey) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`);
+        if (!response.ok) throw new Error(`Gemini model catalog request failed (${response.status})`);
+        const data = await response.json() as { models?: any[] };
+        discovered.push(...(data.models || [])
+          .filter(model => String(model.supportedGenerationMethods || []).includes('generateContent'))
+          .map(model => toDiscoveredModel({
+            id: String(model.name || '').replace(/^models\//, ''),
+            name: model.displayName,
+            description: model.description,
+            context_length: model.inputTokenLimit
+          }, "gemini")));
+      } catch (error: any) {
+        errors.push(`Gemini: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn("[Provider Models Warning]:", errors.join("; "));
+    }
+    return res.json({ success: true, models: discovered, warnings: errors });
+  });
 
   // Test Provider Endpoint for instant verification in Settings
   app.post("/api/test-provider", async (req, res) => {

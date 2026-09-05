@@ -5,7 +5,7 @@ import { AI_MODELS, getModelById } from '../constants/models';
 import { ModelIcon } from './ModelIcon';
 
 export const SettingsPanel = () => {
-  const { llmConfig, updateLLMConfig, selectedModel, selectModel, setIsModelSelectorOpen } = useIDE();
+  const { llmConfig, updateLLMConfig, selectedModel, selectModel, setIsModelSelectorOpen, refreshProviderModels } = useIDE();
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<Record<string, { success: boolean; message: string }>>({});
   const [savedFeedback, setSavedFeedback] = useState(false);
@@ -38,6 +38,7 @@ export const SettingsPanel = () => {
         ...prev,
         [provider]: { success: true, message: data.message || 'Connected successfully!' }
       }));
+      await refreshProviderModels();
     } catch (err: any) {
       setProviderStatuses(prev => ({
         ...prev,
@@ -362,4 +363,3 @@ export const SettingsPanel = () => {
     </div>
   );
 };
-

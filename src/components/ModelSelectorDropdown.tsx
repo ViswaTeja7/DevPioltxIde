@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useIDE } from '../context/IDEContext';
-import { AI_MODELS, getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
 import { ModelIcon } from './ModelIcon';
 import { AIModel } from '../types';
 import { Search, Check, ChevronDown, Sparkles, Key, ExternalLink, Zap, Brain, SlidersHorizontal, Info, Gift } from 'lucide-react';
@@ -16,14 +16,14 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   className = '',
   onOpenSettings,
 }) => {
-  const { llmConfig, updateLLMConfig, setActiveActivity } = useIDE();
+  const { llmConfig, updateLLMConfig, setActiveActivity, availableModels } = useIDE();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedModel = getModelById(llmConfig.selectedModelId || DEFAULT_MODEL_ID);
+  const selectedModel = availableModels.find(model => model.id === llmConfig.selectedModelId) || getModelById(DEFAULT_MODEL_ID);
 
   // Close when clicking outside
   useEffect(() => {
@@ -58,7 +58,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   };
 
   // Filter models
-  const filteredModels = AI_MODELS.filter((model) => {
+  const filteredModels = availableModels.filter((model) => {
     const matchesSearch =
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.providerLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||

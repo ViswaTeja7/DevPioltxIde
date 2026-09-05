@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   ActivityTab, 
   PanelTab, 
@@ -54,6 +54,8 @@ interface IDEState {
   llmConfig: LLMConfig;
   updateLLMConfig: (config: Partial<LLMConfig> | ((prev: LLMConfig) => LLMConfig)) => void;
   selectedModel: AIModel;
+  availableModels: AIModel[];
+  refreshProviderModels: () => Promise<void>;
   selectModel: (modelId: string) => void;
   isModelSelectorOpen: boolean;
   setIsModelSelectorOpen: (open: boolean) => void;
@@ -200,6 +202,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     }
   ]);
   const [llmConfig, setLLMConfig] = useState<LLMConfig>(getInitialLLMConfig);
+  const [discoveredModels, setDiscoveredModels] = useState<AIModel[]>([]);
 
   // Trainable Agent & Claude-style Skills System State
   const [skills, setSkills] = useState<AgentSkill[]>(getInitialSkills);
@@ -317,7 +320,42 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     persistKnowledgeDocs(updated);
   };
 
-  const selectedModel = getModelById(llmConfig.selectedModelId || DEFAULT_MODEL_ID);
+  const availableModels = [...discoveredModels, ...AI_MODELS.filter(model =>
+    !discoveredModels.some(discovered => discovered.id === model.id)
+  )];
+  const selectedModel = availableModels.find(model => model.id === llmConfig.selectedModelId) || getModelById(DEFAULT_MODEL_ID);
+
+  const refreshProviderModels = async () => {
+    const response = await fetch('/api/provider-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys: llmConfig.keys })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Unable to load provider models');
+    }
+    setDiscoveredModels(data.models || []);
+  };
+
+  useEffect(() => {
+    const hasCredentials = Boolean(
+      llmConfig.keys.gemini.trim() ||
+      llmConfig.keys.openrouter.trim() ||
+      llmConfig.keys.groq.trim()
+    );
+    if (!hasCredentials) {
+      setDiscoveredModels([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      refreshProviderModels().catch(error => {
+        console.warn('Failed to refresh provider models', error);
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [llmConfig.keys.gemini, llmConfig.keys.openrouter, llmConfig.keys.groq]);
 
   const selectModel = (modelId: string) => {
     const targetModel = getModelById(modelId);
@@ -584,6 +622,8 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
         llmConfig,
         updateLLMConfig,
         selectedModel,
+        availableModels,
+        refreshProviderModels,
         selectModel,
         isModelSelectorOpen,
         setIsModelSelectorOpen,
