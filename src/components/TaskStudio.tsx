@@ -304,34 +304,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
     { id: 'general', label: 'General Task', icon: MessageSquare, desc: 'Multi-turn non-coding reasoning' },
   ] as const;
 
-  const quickPrompts: Record<TaskType, { label: string; prompt: string }[]> = {
-    image: [
-      { label: '🎨 Modern App Logo', prompt: 'Minimalist tech logo for an AI developer platform with glowing geometric lines' },
-      { label: '📊 Dashboard Illustration', prompt: 'High-tech analytics dashboard banner with futuristic network nodes' },
-      { label: '🤖 Cyberpunk Avatar', prompt: 'Cyberpunk programmer avatar wearing glowing visor in dark mode studio' },
-      { label: '☁️ Cloud Architecture', prompt: 'Clean schematic graphic of multi-region cloud microservices' },
-    ],
-    research: [
-      { label: '⚡ Zustand vs Redux', prompt: 'Comprehensive benchmark and architecture comparison: Zustand vs Redux Toolkit vs TanStack Store in 2026' },
-      { label: '🛡️ OAuth2 PKCE Flow', prompt: 'Security analysis, implementation trade-offs and RFC specifications for OAuth 2.0 PKCE in single page apps' },
-      { label: '🗄️ Postgres vs Cloud SQL', prompt: 'Architectural comparison of self-hosted PostgreSQL vs managed Google Cloud SQL: pricing, scalability, and connection pooling' },
-      { label: '🚀 WebAssembly in 2026', prompt: 'Current state of WebAssembly (Wasm) and WASI for browser-based intensive computations' },
-    ],
-    docs: [
-      { label: '📄 PRD: Auth & RBAC', prompt: 'Generate a comprehensive Product Requirements Document (PRD) for Role-Based Access Control in a SaaS app' },
-      { label: '📐 ADR: State Manager', prompt: 'Write an Architecture Decision Record (ADR) detailing the decision to adopt Zustand over Context API' },
-      { label: '📖 Project README', prompt: 'Write a professional, GitHub-ready README.md for DevPilotX IDE featuring installation, features, and config' },
-    ],
-    brainstorm: [
-      { label: '💡 AI Code Assist Features', prompt: 'Brainstorm 5 innovative, non-intrusive AI developer features that developers will love' },
-      { label: '📈 Developer Growth Loops', prompt: 'Suggest viral product growth loops and open-source incentives for an IDE tool' },
-      { label: '🗺️ 6-Month Roadmap', prompt: 'Outline a realistic 6-month product roadmap for scaling a developer tools startup' },
-    ],
-    general: [
-      { label: '✍️ Release Notes', prompt: 'Draft celebratory, high-energy release notes for v2.0 of our developer platform' },
-      { label: '🔍 Explain Architecture', prompt: 'Explain the difference between event-driven architecture and request-response architecture' },
-    ],
-  };
+
 
   const filteredHistory = taskChatHistory.filter((msg) => {
     if (filterTaskType === 'all') return true;
@@ -353,9 +326,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
               <span className="text-xs font-bold uppercase tracking-wider text-white truncate">
                 Multimodal Task Studio
               </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#238636]/20 text-[#3FB950] border border-[#238636]/30 font-medium">
-                Non-Coding
-              </span>
+
             </div>
             <p className="text-[10px] text-[#8B949E] truncate hidden sm:block">
               Dedicated chat for images, deep research & specs
@@ -844,27 +815,11 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Prompt Suggestions */}
-      <div className="px-3 pt-2 bg-[#0D1117] border-t border-[#30363D] shrink-0">
-        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[10px] text-[#8B949E] font-medium shrink-0">Suggestions:</span>
-          {quickPrompts[activeTaskType]?.map((qp, i) => (
-            <button
-              key={i}
-              onClick={() => handleSend(undefined, qp.prompt)}
-              disabled={isLoading}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-[10px] text-[#C9D1D9] hover:text-white whitespace-nowrap transition-colors disabled:opacity-40"
-            >
-              <span>{qp.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Input Composer */}
-        <form
-          onSubmit={(e) => handleSend(e)}
-          className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5 mb-2.5"
-        >
+      {/* Input Composer */}
+      <form
+        onSubmit={(e) => handleSend(e)}
+        className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5 mb-2.5"
+      >
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -915,7 +870,6 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             </button>
           </div>
         </form>
-      </div>
 
       {/* Image Zoom Lightbox Modal */}
       {zoomImage && (

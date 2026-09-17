@@ -232,9 +232,7 @@ export const AgentTrainingStudio = () => {
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 Agent Skills & Training Studio
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#A371F7]/15 text-[#A371F7] border border-[#A371F7]/30">
-                  Claude-Style Extensible Brain
-                </span>
+
               </h1>
               <p className="text-xs text-[#8B949E] mt-0.5">
                 Equip your coding agent with specialized skills, teach patterns through few-shot exemplars, and tune behavior.
@@ -958,31 +956,7 @@ export const AgentTrainingStudio = () => {
                   className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg p-3 text-xs text-white outline-none focus:border-[#58A6FF] leading-relaxed"
                 />
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-[11px] text-[#8B949E]">
-                    <span>Sample tests:</span>
-                    <button
-                      onClick={() => setSandboxPrompt("Write a TypeScript service for user authentication with password hashing and JWT token issuance.")}
-                      className="text-[#58A6FF] hover:underline"
-                    >
-                      Auth Service
-                    </button>
-                    •
-                    <button
-                      onClick={() => setSandboxPrompt("Refactor a React component with state props to strictly adhere to Clean Architecture principles.")}
-                      className="text-[#58A6FF] hover:underline"
-                    >
-                      Clean Code
-                    </button>
-                    •
-                    <button
-                      onClick={() => setSandboxPrompt("Write Vitest unit tests for a shopping cart calculation module.")}
-                      className="text-[#58A6FF] hover:underline"
-                    >
-                      Vitest TDD
-                    </button>
-                  </div>
-
+                <div className="flex items-center justify-end">
                   <button
                     onClick={handleRunSandbox}
                     disabled={sandboxLoading || !sandboxPrompt.trim()}

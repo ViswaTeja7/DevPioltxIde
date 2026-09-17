@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { useIDE } from '../context/IDEContext';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  File, 
-  Folder, 
-  FileJson, 
-  FileCode, 
-  FileText, 
-  FilePlus, 
-  FolderPlus, 
-  RefreshCw, 
+import {
+  ChevronRight,
+  ChevronDown,
+  File,
+  Folder,
+  FileJson,
+  FileCode,
+  FileText,
+  FilePlus,
+  FolderPlus,
+  RefreshCw,
   FolderGit2,
   Minimize2,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import { FileNode } from '../types';
 
@@ -101,7 +102,7 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 };
 
 const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level }) => {
-  const { openFile, activeFileId } = useIDE();
+  const { openFile, activeFileId, deleteFile } = useIDE();
   const [isOpen, setIsOpen] = useState(true);
 
   const isFolder = node.type === 'folder';
@@ -112,6 +113,16 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
       setIsOpen(!isOpen);
     } else {
       openFile(node);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const message = isFolder
+      ? `Delete folder "${node.name}" and all of its contents? This cannot be undone in the current session.`
+      : `Delete file "${node.name}"? This cannot be undone in the current session.`;
+    if (window.confirm(message)) {
+      deleteFile(node.id);
     }
   };
 
@@ -135,14 +146,22 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
   return (
     <div>
       <div
-        className={`flex items-center py-1 cursor-pointer hover:bg-[#21262D] select-none ${isActive ? 'bg-[#21262D] border-l-2 border-[#58A6FF] text-[#58A6FF]' : 'text-[#8B949E] border-l-2 border-transparent'}`}
+        className={`group flex items-center py-1 cursor-pointer hover:bg-[#21262D] select-none ${isActive ? 'bg-[#21262D] border-l-2 border-[#58A6FF] text-[#58A6FF]' : 'text-[#8B949E] border-l-2 border-transparent'}`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={handleClick}
       >
         {getFileIcon()}
         {isFolder && !isOpen && <Folder size={14} className="mr-2 text-[#8B949E]" />}
         {isFolder && isOpen && <Folder size={14} className="mr-2 text-[#8B949E]" />}
-        <span className="truncate">{node.name}</span>
+        <span className="truncate flex-1">{node.name}</span>
+        <button
+          onClick={handleDelete}
+          className="p-1 rounded text-[#8B949E] hover:text-[#F85149] hover:bg-[#30363D] opacity-0 group-hover:opacity-100 transition-opacity"
+          title={isFolder ? 'Delete Folder' : 'Delete File'}
+          aria-label={isFolder ? `Delete folder ${node.name}` : `Delete file ${node.name}`}
+        >
+          <Trash2 size={12} />
+        </button>
       </div>
       {isFolder && isOpen && node.children && (
         <div>

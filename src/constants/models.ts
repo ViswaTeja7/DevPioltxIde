@@ -4,55 +4,8 @@ export const AI_MODELS: AIModel[] = [
   // ==========================================
   // 1. Google Gemini Models (Built-in & Ready)
   // ==========================================
-  {
-    id: 'gemini-3.7-flash',
-    name: 'Gemini 3.7 Flash',
-    provider: 'gemini',
-    providerLabel: 'Google DeepMind',
-    description: 'Next-gen workhorse model built for ultra-fast coding, debugging, and 1M+ token context analysis.',
-    tags: ['Ultra Fast', '1M Context', 'Coding', 'Multimodal', 'Free'],
-    badge: 'Built-in (Default)',
-    contextWindow: '1M tokens',
-    speed: 'Ultra Fast',
-    iconType: 'gemini',
-    isDefault: true,
-    isCopilotRecommended: true,
-    requiresCustomKey: false,
-    isFree: true,
-  },
-  {
-    id: 'gemini-3.6-flash',
-    name: 'Gemini 3.6 Flash',
-    provider: 'gemini',
-    providerLabel: 'Google DeepMind',
-    description: 'Balanced speed and intelligence model for fast iteration, code refactoring, and AST analysis.',
-    tags: ['Fast', '1M Context', 'Code & Chat', 'Free'],
-    badge: 'Fast & Efficient',
-    contextWindow: '1M tokens',
-    speed: 'Ultra Fast',
-    iconType: 'gemini',
-    isCopilotRecommended: true,
-    requiresCustomKey: false,
-    isFree: true,
-  },
-  {
-    id: 'gemini-3.1-pro-preview',
-    name: 'Gemini 3.1 Pro',
-    provider: 'gemini',
-    providerLabel: 'Google DeepMind',
-    description: "Google's most capable model for complex multi-file reasoning, full repository refactoring, and system architecture.",
-    tags: ['Deep Reasoning', '2M Context', 'Complex Architecture', 'Free'],
-    badge: 'Advanced Pro',
-    contextWindow: '2M tokens',
-    speed: 'Fast',
-    iconType: 'gemini',
-    isCopilotRecommended: true,
-    requiresCustomKey: false,
-    isFree: true,
-  },
-
   // ==========================================
-  // 2. Open-Weight Frontier Models (Meta / Alibaba / Mistral)
+  // 1. Open-Weight Frontier Models (Meta / Alibaba / Mistral)
   // ==========================================
   {
     id: 'meta-llama/llama-3.3-70b-instruct',
@@ -86,40 +39,7 @@ export const AI_MODELS: AIModel[] = [
   },
 
   // ==========================================
-  // 3. MiniMax AI Models
-  // ==========================================
-  {
-    id: 'minimax/minimax-01',
-    name: 'MiniMax-01',
-    provider: 'openrouter',
-    providerLabel: 'MiniMax',
-    description: 'Breakthrough 456B parameter MoE model with exceptional 1M context window and lightning fast multi-language code generation.',
-    tags: ['MiniMax', '1M Context', '456B MoE', 'Fast Coding'],
-    badge: '1M Context',
-    contextWindow: '1M tokens',
-    speed: 'Fast',
-    iconType: 'minimax',
-    isCopilotRecommended: true,
-    requiresCustomKey: true,
-    isFree: false,
-  },
-  {
-    id: 'minimax/minimax-m6',
-    name: 'MiniMax M6 Coding',
-    provider: 'openrouter',
-    providerLabel: 'MiniMax',
-    description: 'Compact, ultra-low latency coding model optimized for interactive inline code completion and fast debugging.',
-    tags: ['MiniMax', 'Low Latency', 'Inline Edits'],
-    badge: 'Ultra Fast',
-    contextWindow: '128k tokens',
-    speed: 'Ultra Fast',
-    iconType: 'minimax',
-    requiresCustomKey: true,
-    isFree: false,
-  },
-
-  // ==========================================
-  // 4. Zero-Cost Free Models (OpenRouter & Groq)
+  // 2. Zero-Cost Free Models (OpenRouter & Groq)
   // ==========================================
   {
     id: 'deepseek/deepseek-r1:free',
@@ -211,23 +131,8 @@ export const AI_MODELS: AIModel[] = [
   },
 
   // ==========================================
-  // 5. Anthropic Claude Frontier Models
+  // 3. Anthropic Claude Frontier Models
   // ==========================================
-  {
-    id: 'anthropic/claude-3.7-sonnet',
-    name: 'Claude 3.7 Sonnet',
-    provider: 'openrouter',
-    providerLabel: 'Anthropic',
-    description: "Anthropic's hybrid reasoning flagship with controllable extended thinking and peak coding intelligence.",
-    tags: ['Hybrid Reasoning', 'DevPilotX Favorite', '200K Context'],
-    badge: 'DevPilotX Default',
-    contextWindow: '200k tokens',
-    speed: 'Deep Reasoning',
-    iconType: 'claude',
-    isCopilotRecommended: true,
-    requiresCustomKey: true,
-    isFree: false,
-  },
   {
     id: 'anthropic/claude-3.5-sonnet',
     name: 'Claude 3.5 Sonnet',
@@ -259,7 +164,7 @@ export const AI_MODELS: AIModel[] = [
   },
 
   // ==========================================
-  // 6. OpenAI Models
+  // 4. OpenAI Models
   // ==========================================
   {
     id: 'openai/gpt-4o',
@@ -307,7 +212,7 @@ export const AI_MODELS: AIModel[] = [
   },
 
   // ==========================================
-  // 7. Mistral AI Frontier Models
+  // 5. Mistral AI Frontier Models
   // ==========================================
   {
     id: 'mistralai/codestral-2501',
@@ -340,7 +245,7 @@ export const AI_MODELS: AIModel[] = [
   },
 
   // ==========================================
-  // 8. Meta & Groq LPU Models (Ultra High Speed)
+  // 6. Meta & Groq LPU Models (Ultra High Speed)
   // ==========================================
   {
     id: 'llama-3.3-70b-versatile',
@@ -386,7 +291,7 @@ export const AI_MODELS: AIModel[] = [
   },
 
   // ==========================================
-  // 9. Ollama (Cloud Hosted & Local Air-Gapped)
+  // 7. Ollama (Cloud Hosted & Local Air-Gapped)
   // ==========================================
   {
     id: 'ollama/cloud',
@@ -567,7 +472,7 @@ export const AI_MODELS: AIModel[] = [
   }
 ];
 
-export const DEFAULT_MODEL_ID = 'gemini-3.7-flash';
+export const DEFAULT_MODEL_ID = 'openai/gpt-4o';
 export const DEFAULT_IMAGE_MODEL_ID = 'black-forest-labs/flux-schnell';
 
 export function getModelById(id: string): AIModel {
