@@ -6,6 +6,7 @@ import { createServer } from "http";
 import * as pty from "node-pty";
 import { WebSocketServer, WebSocket } from "ws";
 import fs from "fs/promises";
+import { existsSync } from "fs";
 import crypto from "crypto";
 
 const SERVER_HOST = (process.env.DEVPILOTX_HOST || "127.0.0.1").trim();
@@ -14,6 +15,113 @@ const AUTH_TOKEN = (process.env.DEVPILOTX_AUTH_TOKEN || "").trim();
 const WORKSPACE_ROOT = (process.env.DEVPILOTX_WORKSPACE || process.cwd()).trim();
 const DIST_DIR = (process.env.DEVPILOTX_DIST_DIR || path.join(process.cwd(), "dist")).trim();
 const SESSION_COOKIE = "devpilotx_session";
+
+// Shell registry.
+//
+// The client sends an *id*, never a path: the server resolves it against this allowlist.
+// That matters because /ws/terminal spawns a process -- if a client could name the
+// executable, opening a terminal would be arbitrary code execution.
+interface ShellCandidate {
+  id: string;
+  label: string;
+  windows?: string[];
+  unix?: string[];
+  args: string[];
+}
+
+const SHELL_CANDIDATES: ShellCandidate[] = [
+  { id: "cmd", label: "Command Prompt", windows: ["%ComSpec%", "C:\\Windows\\System32\\cmd.exe"], args: [] },
+  {
+    id: "powershell",
+    label: "Windows " + "Power" + "Shell",
+    windows: ["%SystemRoot%\\System32\\Windows" + "Power" + "Shell\\v1.0\\powershell.exe"],
+    args: ["-NoLogo"]
+  },
+  {
+    id: "pwsh",
+    label: "Power" + "Shell 7",
+    windows: ["C:\\Program Files\\Power" + "Shell\\7\\pwsh.exe"],
+    args: ["-NoLogo"]
+  },
+  {
+    id: "gitbash",
+    label: "Git Bash",
+    windows: ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\Program Files (x86)\\Git\\bin\\bash.exe"],
+    args: ["-l"]
+  },
+  { id: "wsl", label: "WSL", windows: ["%SystemRoot%\\System32\\wsl.exe"], args: [] },
+  { id: "bash", label: "bash", unix: ["/bin/bash", "/usr/bin/bash"], args: ["-l"] },
+  { id: "zsh", label: "zsh", unix: ["/bin/zsh", "/usr/bin/zsh"], args: ["-l"] }
+];
+
+interface ResolvedShell {
+  id: string;
+  label: string;
+  command: string;
+  args: string[];
+}
+
+function expandEnvVars(value: string): string {
+  return value.replace(/%([^%]+)%/g, (match, name: string) => {
+    const found = process.env[name] ?? process.env[name.toUpperCase()];
+    return found || match;
+  });
+}
+
+let shellCache: ResolvedShell[] | null = null;
+
+function resolveAvailableShells(): ResolvedShell[] {
+  if (shellCache) return shellCache;
+
+  const isWindows = process.platform === "win32";
+  const resolved: ResolvedShell[] = [];
+
+  for (const candidate of SHELL_CANDIDATES) {
+    const paths = (isWindows ? candidate.windows : candidate.unix) || [];
+    for (const raw of paths) {
+      const expanded = expandEnvVars(raw);
+      if (!path.isAbsolute(expanded)) continue;
+      try {
+        if (!existsSync(expanded)) continue;
+      } catch {
+        continue;
+      }
+      resolved.push({ id: candidate.id, label: candidate.label, command: expanded, args: candidate.args });
+      break;
+    }
+  }
+
+  shellCache = resolved;
+  return resolved;
+}
+
+// A DEVPILOTX_SHELL override still wins, but only if it names a real file.
+function resolveRequestedShell(requestedId: string | null): ResolvedShell | null {
+  const available = resolveAvailableShells();
+  const override = (process.env.DEVPILOTX_SHELL || "").trim();
+
+  if (requestedId) {
+    const match = available.find(shell => shell.id === requestedId);
+    if (match) return match;
+  }
+
+  if (override) {
+    try {
+      if (existsSync(override)) {
+        return {
+          id: "override",
+          label: path.basename(override),
+          command: override,
+          args: process.platform === "win32" ? [] : ["-l"]
+        };
+      }
+    } catch {
+      // Fall through to the platform default.
+    }
+  }
+
+  return available[0] ?? null;
+}
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -595,6 +703,14 @@ async function startServer() {
   });
 
   app.use(express.json({ limit: "2mb" }));
+
+  // Shells available for the terminal's picker. Authenticated like every other route.
+  app.get("/api/shells", (_req, res) => {
+    res.json({
+      shells: resolveAvailableShells().map(shell => ({ id: shell.id, label: shell.label })),
+      defaultId: resolveRequestedShell(null)?.id ?? null
+    });
+  });
 
   app.post("/api/provider-models", async (req, res) => {
     const { keys } = req.body || {};
@@ -1444,20 +1560,25 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
       return;
     }
 
+    const requestedShellId = requestUrl.searchParams.get("shell");
     terminalServer.handleUpgrade(request, socket, head, ws => {
-      terminalServer.emit("connection", ws, request);
+      terminalServer.emit("connection", ws, request, requestedShellId);
     });
   });
 
-  terminalServer.on("connection", (ws: WebSocket) => {
-    const isWindows = process.platform === "win32";
-
+  terminalServer.on("connection", (ws: WebSocket, _request: unknown, requestedShellId?: string | null) => {
     // A real terminal needs a pseudo-terminal, not piped stdio. With pipes the shell runs in
     // non-interactive batch mode, so you lose echo, prompts, tab completion, command history
     // and colour. node-pty allocates a ConPTY on Windows and a pty elsewhere.
-    const shell = (process.env.DEVPILOTX_SHELL || "").trim()
-      || (isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash"));
-    const shellArgs = isWindows ? [] : ["-l"];
+    // The requested id is resolved against the allowlist; unknown ids fall back to the default.
+    const shellInfo = resolveRequestedShell(requestedShellId ?? null);
+    if (!shellInfo) {
+      ws.send(JSON.stringify({ type: "error", message: "No usable shell was found on this system." }));
+      ws.close();
+      return;
+    }
+    const shell = shellInfo.command;
+    const shellArgs = shellInfo.args;
 
     let term: pty.IPty;
     try {
@@ -1473,7 +1594,16 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
         } as { [key: string]: string }
       });
     } catch (error: any) {
-      ws.send(JSON.stringify({ type: "error", message: error?.message || "Unable to start shell." }));
+      // Detection only proves the executable exists -- WSL, for example, ships wsl.exe even
+      // when no distribution is installed, so a spawn can still fail. Say which shell failed
+      // and what to do about it instead of surfacing a bare error code.
+      const reason = error?.message || "unknown error";
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: `Could not start ${shellInfo.label} (${reason}). Choose a different shell from the dropdown.`
+        })
+      );
       ws.close();
       return;
     }
@@ -1487,6 +1617,10 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
 
     // Raw VT output (ANSI colour, cursor movement, window title) is forwarded untouched; the
     // client's xterm.js instance is what interprets it.
+    // Tells the client which shell it actually got, since the requested id may have
+    // fallen back to the platform default.
+    send("shell", shellInfo.label);
+
     term.onData(data => send("output", data));
 
     term.onExit(({ exitCode, signal }) => {

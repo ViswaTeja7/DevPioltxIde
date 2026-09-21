@@ -5,9 +5,10 @@ import { SearchAddon } from '@xterm/addon-search';
 import { X, ChevronUp, ChevronDown, Search } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 
-const terminalSocketUrl = () => {
+const terminalSocketUrl = (shellId?: string) => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/ws/terminal`;
+  const query = shellId ? `?shell=${encodeURIComponent(shellId)}` : '';
+  return `${protocol}//${window.location.host}/ws/terminal${query}`;
 };
 
 const THEME = {
@@ -38,11 +39,19 @@ export type TerminalState = 'connecting' | 'connected' | 'closed';
 
 interface TerminalViewProps {
   active: boolean;
+  shellId?: string;
   onStateChange?: (state: TerminalState) => void;
   onTitleChange?: (title: string) => void;
+  onShellLabel?: (label: string) => void;
 }
 
-export const TerminalView = ({ active, onStateChange, onTitleChange }: TerminalViewProps) => {
+export const TerminalView = ({
+  active,
+  shellId,
+  onStateChange,
+  onTitleChange,
+  onShellLabel
+}: TerminalViewProps) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -106,7 +115,7 @@ export const TerminalView = ({ active, onStateChange, onTitleChange }: TerminalV
       // Host may still be zero-sized on first paint.
     }
 
-    const socket = new WebSocket(terminalSocketUrl());
+    const socket = new WebSocket(terminalSocketUrl(shellId));
     socketRef.current = socket;
     onStateChange?.('connecting');
 
@@ -126,6 +135,9 @@ export const TerminalView = ({ active, onStateChange, onTitleChange }: TerminalV
       }
       if (message.type === 'output' && message.data) {
         term.write(message.data);
+      } else if (message.type === 'shell') {
+        // The requested shell may have fallen back to the platform default.
+        onShellLabel?.(message.data || '');
       } else if (message.type === 'exit') {
         term.write(`\r\n\x1b[33m${message.data || '[process exited]'}\x1b[0m`);
         onStateChange?.('closed');
@@ -191,7 +203,7 @@ export const TerminalView = ({ active, onStateChange, onTitleChange }: TerminalV
       fitRef.current = null;
       searchRef.current = null;
     };
-  }, [onStateChange, onTitleChange, pushResize, refit]);
+  }, [shellId, onStateChange, onTitleChange, onShellLabel, pushResize, refit]);
 
   // A tab that was hidden has no measurable size, so it must be refitted when it becomes visible.
   useEffect(() => {
