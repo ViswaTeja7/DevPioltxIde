@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
@@ -1072,6 +1073,58 @@ async function startServer() {
     } catch (error: any) {
       res.status(404).json({ error: `Cannot list ${resolved.relative}: ${error?.message || "not found"}` });
     }
+  });
+
+  app.post("/api/provider-models", async (req, res) => {
+    const { keys } = req.body || {};
+    const discovered: any[] = [];
+    const errors: string[] = [];
+
+    const openRouterKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
+    if (openRouterKey) {
+      try {
+        const openai = createOpenRouterClient(openRouterKey, "DevPilotX Model Catalog");
+        const models = await openai.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "openrouter")));
+      } catch (error: any) {
+        errors.push(`OpenRouter: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const groqKey = String(keys?.groq || process.env.GROQ_API_KEY || "").trim();
+    if (groqKey) {
+      try {
+        const groq = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
+        const models = await groq.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "groq")));
+      } catch (error: any) {
+        errors.push(`Groq: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const geminiKey = String(keys?.gemini || process.env.GEMINI_API_KEY || "").trim();
+    if (geminiKey) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`);
+        if (!response.ok) throw new Error(`Gemini model catalog request failed (${response.status})`);
+        const data = await response.json() as { models?: any[] };
+        discovered.push(...(data.models || [])
+          .filter(model => String(model.supportedGenerationMethods || []).includes('generateContent'))
+          .map(model => toDiscoveredModel({
+            id: String(model.name || '').replace(/^models\//, ''),
+            name: model.displayName,
+            description: model.description,
+            context_length: model.inputTokenLimit
+          }, "gemini")));
+      } catch (error: any) {
+        errors.push(`Gemini: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn("[Provider Models Warning]:", errors.join("; "));
+    }
+    return res.json({ success: true, models: discovered, warnings: errors });
   });
 
   app.post("/api/provider-models", async (req, res) => {
