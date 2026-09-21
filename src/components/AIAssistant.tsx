@@ -60,7 +60,10 @@ export const AIAssistant = () => {
           ? flattenFiles(node.children || [])
           : [{ path: node.path, content: node.content || '', language: node.language }]);
       const workspace = flattenFiles(fileTree);
-      const response = await fetch('/api/chat', {
+      // In agent and autonomous modes the server runs a real loop, executing each action
+      // and feeding results back. Elsewhere a single turn is all that is wanted.
+      const useAgentLoop = agentMode === 'agent' || agentMode === 'autonomous';
+      const response = await fetch(useAgentLoop ? '/api/agent' : '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -111,10 +114,16 @@ export const AIAssistant = () => {
           createNewFile(name, String(action.content || ''));
           appliedActions.push(`Created ${path}`);
         } else if (action.type === 'delete_file' && file?.id) {
-          deleteFile(file.id);
+          // The loop already deleted it on disk, so only mirror the change locally.
+          deleteFile(file.id, !useAgentLoop);
           appliedActions.push(`Deleted ${file.path}`);
         } else if (action.type === 'run_command' && action.command) {
-          pendingCommands.push(String(action.command));
+          // The loop executes commands itself and reports the outcome in `action.detail`.
+          if (useAgentLoop) {
+            appliedActions.push(`Ran \`${action.command}\`${action.ok ? '' : ' (failed)'}`);
+          } else {
+            pendingCommands.push(String(action.command));
+          }
         }
       }
 

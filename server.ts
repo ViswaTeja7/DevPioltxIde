@@ -8,6 +8,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import fs from "fs/promises";
 import { existsSync } from "fs";
 import crypto from "crypto";
+import { exec as execCallback } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(execCallback);
 
 const SERVER_HOST = (process.env.DEVPILOTX_HOST || "127.0.0.1").trim();
 const SERVER_PORT = Number.parseInt(process.env.DEVPILOTX_PORT || "3000", 10);
@@ -423,6 +427,14 @@ The block must contain an array of actions. Supported actions:
 Use complete file contents, never partial patches or ellipses. Only include run_command when it is safe and directly required; the host will ask for confirmation before executing commands. Keep the user-facing explanation outside the JSON block. If no file change is needed, omit the block.
 `;
 
+const AGENT_LOOP_PROTOCOL = `
+[AGENT LOOP]
+Your reply may produce actions. After they run you will receive their real results and may act again.
+Read those results: if something failed, change your approach instead of repeating the identical action.
+Never claim a file was changed unless an observation confirms it succeeded.
+When the task is finished, reply to the user with no actions block.
+`;
+
 function parseAgentActions(text: string, mode: string): { text: string; actions: any[] } {
   if (mode !== "agent" && mode !== "autonomous") return { text, actions: [] };
   const match = text.match(/```devpilotx-actions\s*([\s\S]*?)```/i);
@@ -438,6 +450,192 @@ function parseAgentActions(text: string, mode: string): { text: string; actions:
   } catch {
     return { text, actions: [] };
   }
+}
+
+// One call to whichever provider is configured. The agent loop calls this repeatedly, so it
+// must stay provider-agnostic: Gemini, OpenRouter, Groq and Ollama each need different SDK
+// shapes, and a loop that only worked on one of them would be useless in practice.
+async function callChatModel(params: {
+  provider?: string;
+  modelId: string;
+  keys: any;
+  systemPrompt: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  maxTokens?: number;
+}): Promise<{ text: string; modelUsed: string }> {
+  const { provider, modelId, keys, systemPrompt, messages, maxTokens = 2500 } = params;
+  const id = String(modelId || "gemini-3.7-flash");
+
+  const inferProvider = (): string => {
+    if (provider) return String(provider);
+    if (id.startsWith("ollama/")) return "ollama";
+    if (/^(anthropic|openai|deepseek|meta-llama|qwen|minimax|mistralai|nvidia)\//.test(id)) return "openrouter";
+    if (id.includes("groq")) return "groq";
+    return "gemini";
+  };
+  const effective = inferProvider();
+
+  if (effective === "openrouter") {
+    const rawKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
+    if (rawKey) {
+      const openai = createOpenRouterClient(rawKey, "DevPilotX Agent");
+      const completion = await openai.chat.completions.create({
+        model: id,
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        max_tokens: maxTokens
+      });
+      return { text: completion.choices[0]?.message?.content || "", modelUsed: id };
+    }
+  }
+
+  if (effective === "ollama") {
+    const baseUrl = (keys?.ollamaUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434")
+      .trim()
+      .replace(/^["'`]|["'`]$/g, "");
+    const openai = new OpenAI({
+      baseURL: baseUrl.replace(/\/+$/, "") + "/v1",
+      apiKey: keys?.ollamaApiKey || "ollama"
+    });
+    const modelName = keys?.ollamaModel || id.replace(/^ollama\//, "");
+    const completion = await openai.chat.completions.create({
+      model: modelName,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      max_tokens: maxTokens
+    });
+    return { text: completion.choices[0]?.message?.content || "", modelUsed: modelName };
+  }
+
+  if (effective === "groq") {
+    const apiKey = keys?.groq || process.env.GROQ_API_KEY;
+    if (apiKey) {
+      const openai = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey });
+      const completion = await openai.chat.completions.create({
+        model: id.replace(/^groq\//, ""),
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        max_tokens: maxTokens
+      });
+      return { text: completion.choices[0]?.message?.content || "", modelUsed: id };
+    }
+  }
+
+  const apiKey = keys?.gemini || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("No API key configured for the selected model.");
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+  });
+  const target = id.startsWith("gemini") ? id : "gemini-3.7-flash";
+  const response = await ai.models.generateContent({
+    model: target,
+    contents: messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    })),
+    config: { systemInstruction: systemPrompt }
+  });
+  return { text: response.text || "", modelUsed: target };
+}
+
+const COMMAND_TIMEOUT_MS = Number.parseInt(process.env.DEVPILOTX_COMMAND_TIMEOUT_MS || "120000", 10);
+const COMMAND_MAX_OUTPUT = 8000;
+
+// Commands come from a model, so a few patterns are refused outright rather than run.
+const COMMAND_DENY_PATTERNS: RegExp[] = [
+  /\brm\s+-rf\s+[\/~]/i,
+  /\bformat\s+[a-z]:/i,
+  /\bdel\s+\/f\s+\/s\s+\/q/i,
+  /\bshutdown\b/i,
+  /\bmkfs\b/i,
+  /\bdd\s+if=/i,
+  /\bshutdown\s+-/i
+];
+
+async function runCommand(command: string): Promise<{ ok: boolean; output: string; refused?: string }> {
+  const denied = COMMAND_DENY_PATTERNS.find(pattern => pattern.test(command));
+  if (denied) {
+    return { ok: false, output: `Refused to run a destructive command (matched ${denied.source}).`, refused: denied.source };
+  }
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      cwd: WORKSPACE_ROOT,
+      timeout: COMMAND_TIMEOUT_MS,
+      maxBuffer: 1024 * 1024 * 8,
+      windowsHide: true
+    });
+    const output = `${stdout || ""}${stderr || ""}`.trim();
+    return { ok: true, output: output.slice(0, COMMAND_MAX_OUTPUT) || "(no output)" };
+  } catch (error: any) {
+    const output = `${error?.stdout || ""}${error?.stderr || ""}${error?.message || ""}`.trim();
+    return { ok: false, output: output.slice(0, COMMAND_MAX_OUTPUT) || "Command failed with no output." };
+  }
+}
+
+// Executes one agent action against the real workspace and reports what happened. The
+// report is the loop's observation: without it the model is acting blind.
+async function executeAgentAction(
+  action: any
+): Promise<{ type: string; target: string; ok: boolean; detail: string; linesAdded?: number; linesRemoved?: number }> {
+  if (action.type === "edit_file" || action.type === "create_file") {
+    const resolved = resolveWorkspacePath(action.path);
+    if (resolved.error) {
+      return { type: action.type, target: String(action.path), ok: false, detail: resolved.error };
+    }
+    const content = typeof action.content === "string" ? action.content : null;
+    if (content === null) {
+      return { type: action.type, target: resolved.relative, ok: false, detail: "Action had no content." };
+    }
+    let before: string | null = null;
+    try {
+      before = await fs.readFile(resolved.absolute, "utf8");
+    } catch {
+      before = null;
+    }
+    if (before === null && action.type === "edit_file") {
+      return { type: action.type, target: resolved.relative, ok: false, detail: "File does not exist; use create_file." };
+    }
+    try {
+      await fs.mkdir(path.dirname(resolved.absolute), { recursive: true });
+      await fs.writeFile(resolved.absolute, content, "utf8");
+      const beforeLines = before === null ? 0 : before.split("\n").length;
+      const afterLines = content.split("\n").length;
+      return {
+        type: action.type,
+        target: resolved.relative,
+        ok: true,
+        detail: before === null ? "created" : "updated",
+        linesAdded: Math.max(0, afterLines - beforeLines),
+        linesRemoved: Math.max(0, beforeLines - afterLines)
+      };
+    } catch (error: any) {
+      return { type: action.type, target: resolved.relative, ok: false, detail: error?.message || "write failed" };
+    }
+  }
+
+  if (action.type === "delete_file") {
+    const resolved = resolveWorkspacePath(action.path);
+    if (resolved.error) {
+      return { type: action.type, target: String(action.path), ok: false, detail: resolved.error };
+    }
+    try {
+      await fs.unlink(resolved.absolute);
+      return { type: action.type, target: resolved.relative, ok: true, detail: "deleted" };
+    } catch (error: any) {
+      return { type: action.type, target: resolved.relative, ok: false, detail: error?.message || "delete failed" };
+    }
+  }
+
+  if (action.type === "run_command") {
+    const command = String(action.command || "");
+    const result = await runCommand(command);
+    return {
+      type: action.type,
+      target: command,
+      ok: result.ok,
+      detail: result.output
+    };
+  }
+
+  return { type: String(action.type || "unknown"), target: "", ok: false, detail: "Unsupported action type." };
 }
 
 async function getAvailableOpenRouterFallback(openai: OpenAI, requestedModel: string): Promise<string | null> {
@@ -1337,6 +1535,117 @@ async function startServer() {
   });
 
   // Dedicated Image Generation Endpoint for Non-Coding Tasks
+  // The agent loop.
+  //
+  // /api/chat is single-turn: it asks once, parses one action block, and stops. The model
+  // therefore never sees whether its edit actually worked, so it cannot recover from a
+  // mistake and cannot chain steps together. This endpoint runs a real loop -- propose,
+  // execute, observe, repeat -- until the model stops asking for actions or the step cap is
+  // reached. Every action goes through executeAgentAction, so the same workspace-root
+  // containment applies here as to the /api/fs routes.
+  app.post("/api/agent", async (req, res) => {
+    try {
+      const {
+        messages,
+        provider,
+        modelId,
+        keys,
+        agentMode = "agent",
+        workspace,
+        skills,
+        trainingProfile,
+        trainingExamples,
+        knowledgeDocs
+      } = req.body || {};
+
+      const maxSteps = Number.parseInt(process.env.DEVPILOTX_AGENT_MAX_STEPS || "6", 10);
+
+      const history: Array<{ role: "user" | "assistant"; content: string }> = (
+        Array.isArray(messages) ? messages : []
+      )
+        .filter((m: any) => m && typeof m.content === "string" && m.content.trim())
+        .map((m: any) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content
+        }));
+
+      if (history.length === 0) history.push({ role: "user", content: "Hello!" });
+
+      const appliedActions: any[] = [];
+      const steps: any[] = [];
+      let finalText = "";
+      let modelUsed = String(modelId || "");
+      let hitStepCap = false;
+
+      for (let step = 1; step <= maxSteps; step++) {
+        const workspaceQuery = history
+          .filter(m => m.role === "user")
+          .slice(-3)
+          .map(m => m.content)
+          .join("\n");
+        const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
+
+        const systemPrompt =
+          buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
+          agentModeInstruction(agentMode) +
+          AGENT_ACTION_PROTOCOL +
+          AGENT_LOOP_PROTOCOL +
+          workspaceDiscovery.context;
+
+        const { text, modelUsed: used } = await callChatModel({
+          provider,
+          modelId,
+          keys,
+          systemPrompt,
+          messages: history
+        });
+        modelUsed = used;
+
+        const parsed = parseAgentActions(text, agentMode);
+
+        if (parsed.actions.length === 0) {
+          finalText = parsed.text;
+          break;
+        }
+
+        const observations: string[] = [];
+        for (const action of parsed.actions) {
+          const result = await executeAgentAction(action);
+          appliedActions.push({ type: action.type, path: action.path, command: action.command, ...result });
+          observations.push(
+            `- ${result.type} on ${result.target}: ${result.ok ? "OK" : "FAILED"} -- ${result.detail}`
+          );
+        }
+        steps.push({ step, actions: parsed.actions.length, observations });
+
+        history.push({ role: "assistant", content: parsed.text || "(acting)" });
+        history.push({
+          role: "user",
+          content: `[OBSERVATIONS FROM STEP ${step}]\n${observations.join(
+            "\n"
+          )}\n\nIf the task is now complete, reply to the user with no actions block. If more work remains, continue with another actions block. Do not repeat an action that just failed without changing it.`
+        });
+
+        if (step === maxSteps) hitStepCap = true;
+      }
+
+      res.json({
+        success: true,
+        text:
+          finalText ||
+          (hitStepCap
+            ? "Reached the step limit before finishing. Here is what was completed so far."
+            : "Agent completed the request."),
+        actions: appliedActions,
+        steps,
+        modelUsed,
+        hitStepCap
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || "Failed to run the agent loop." });
+    }
+  });
+
   app.post("/api/generate-image", async (req, res) => {
     try {
       const { prompt, aspectRatio = "1:1", style = "modern", engine = "auto", modelId, keys, agentMode } = req.body;

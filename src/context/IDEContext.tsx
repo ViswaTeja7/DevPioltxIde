@@ -498,7 +498,9 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     setActiveActivity('explorer');
   };
 
-  const deleteFile = (fileId: string) => {
+  // `persist` is false when the caller is only mirroring a change the server already made
+  // (the agent loop executes actions itself), so a second delete would 404.
+  const deleteFile = (fileId: string, persist = true) => {
     // Resolve the path before the tree is filtered, so the file can be removed from disk too.
     const findNode = (nodes: FileNode[]): FileNode | undefined => {
       for (const node of nodes) {
@@ -553,7 +555,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       return remaining;
     });
 
-    if (target?.path && target.type !== 'folder') {
+    if (persist && target?.path && target.type !== 'folder') {
       clearTimeout(saveTimers.current[target.path]);
       delete saveTimers.current[target.path];
       deleteWorkspaceFile(target.path).catch(error => reportFsError('delete', target.path, error));
