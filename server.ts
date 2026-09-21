@@ -383,6 +383,35 @@ async function getWorkspaceContext(
   };
 }
 
+// Resolves a client-supplied path against the workspace root and refuses anything that
+// escapes it. Every /api/fs route goes through this: without it a request could read or
+// overwrite files anywhere on the host (../../, absolute paths, symlinks out of the root).
+interface WorkspacePath {
+  absolute: string;
+  relative: string;
+  error?: string;
+}
+
+function resolveWorkspacePath(candidate: unknown): WorkspacePath {
+  if (typeof candidate !== "string" || !candidate.trim()) {
+    return { absolute: "", relative: "", error: "A file path is required." };
+  }
+  const root = path.resolve(WORKSPACE_ROOT);
+  // The client's file tree stores paths like "/src/app.tsx". Left alone, win32 would treat
+  // that as drive-rooted and resolve it outside the workspace, so strip leading separators
+  // first. A genuinely absolute path (C:\...) still resolves as absolute and is then caught
+  // by the containment check below.
+  const trimmed = candidate.trim().replace(/^[/\\]+/, "");
+  const absolute = path.isAbsolute(trimmed) ? path.normalize(trimmed) : path.resolve(root, trimmed);
+  const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+  // Windows paths are case-insensitive, so compare lowercased there only.
+  const lower = (value: string) => (process.platform === "win32" ? value.toLowerCase() : value);
+  if (lower(absolute) !== lower(root) && !lower(absolute).startsWith(lower(rootWithSep))) {
+    return { absolute: "", relative: "", error: "Path escapes the workspace root." };
+  }
+  return { absolute, relative: path.relative(root, absolute).replace(/\\/g, "/") };
+}
+
 const AGENT_ACTION_PROTOCOL = `
 [DEVPILOTX ACTION PROTOCOL]
 For Agent and Autonomous modes, include any requested code changes in a JSON code block tagged \`\`\`devpilotx-actions.
@@ -710,6 +739,84 @@ async function startServer() {
       shells: resolveAvailableShells().map(shell => ({ id: shell.id, label: shell.label })),
       defaultId: resolveRequestedShell(null)?.id ?? null
     });
+  });
+
+  // Real filesystem access for the agent.
+  //
+  // Previously the agent's edits only mutated React state held in the browser, so nothing
+  // it "changed" ever reached disk. These routes make writes real. They are authenticated
+  // like every other route, and every path is funnelled through resolveWorkspacePath so a
+  // request cannot escape the workspace root.
+  app.post("/api/fs/read", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      const content = await fs.readFile(resolved.absolute, "utf8");
+      res.json({ path: resolved.relative, content });
+    } catch (error: any) {
+      res.status(404).json({ error: `Cannot read ${resolved.relative}: ${error?.message || "not found"}` });
+    }
+  });
+
+  app.post("/api/fs/write", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    const content = typeof req.body?.content === "string" ? req.body.content : null;
+    if (content === null) return res.status(400).json({ error: "Content must be a string." });
+
+    let before: string | null = null;
+    try {
+      before = await fs.readFile(resolved.absolute, "utf8");
+    } catch {
+      before = null;
+    }
+
+    try {
+      await fs.mkdir(path.dirname(resolved.absolute), { recursive: true });
+      await fs.writeFile(resolved.absolute, content, "utf8");
+      const beforeLines = before === null ? 0 : before.split("\n").length;
+      const afterLines = content.split("\n").length;
+      console.log(`[fs] write ${resolved.relative} (${Buffer.byteLength(content, "utf8")} bytes, created=${before === null})`);
+      res.json({
+        ok: true,
+        path: resolved.relative,
+        created: before === null,
+        bytes: Buffer.byteLength(content, "utf8"),
+        linesAdded: Math.max(0, afterLines - beforeLines),
+        linesRemoved: Math.max(0, beforeLines - afterLines)
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: `Cannot write ${resolved.relative}: ${error?.message || "write failed"}` });
+    }
+  });
+
+  app.post("/api/fs/delete", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      await fs.unlink(resolved.absolute);
+      console.log(`[fs] delete ${resolved.relative}`);
+      res.json({ ok: true, path: resolved.relative });
+    } catch (error: any) {
+      res.status(500).json({ error: `Cannot delete ${resolved.relative}: ${error?.message || "delete failed"}` });
+    }
+  });
+
+  app.post("/api/fs/list", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path ?? ".");
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      const entries = await fs.readdir(resolved.absolute, { withFileTypes: true });
+      res.json({
+        path: resolved.relative,
+        entries: entries.map(entry => ({
+          name: entry.name,
+          type: entry.isDirectory() ? "folder" : "file"
+        }))
+      });
+    } catch (error: any) {
+      res.status(404).json({ error: `Cannot list ${resolved.relative}: ${error?.message || "not found"}` });
+    }
   });
 
   app.post("/api/provider-models", async (req, res) => {

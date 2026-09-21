@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { 
   ActivityTab, 
   PanelTab, 
@@ -23,6 +23,7 @@ import {
   DEFAULT_TRAINING_PROFILE, 
   DEFAULT_KNOWLEDGE_DOCS 
 } from '../constants/skills';
+import { writeWorkspaceFile, deleteWorkspaceFile, reportFsError } from '../lib/workspaceFs';
 
 interface IDEState {
   activeView: ActiveView;
@@ -223,6 +224,9 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   const [activePanel, setActivePanel] = useState<PanelTab>('terminal');
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [fileTree, setFileTree] = useState<FileNode[]>(initialFileTree);
+  // Monaco calls the content setter on every keystroke, so disk writes are debounced
+  // per path rather than issued per character.
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [openFiles, setOpenFiles] = useState<FileNode[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
@@ -480,6 +484,12 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     setActiveFileId(newFile.id);
     setActiveView('editor');
     setActiveActivity('explorer');
+
+    // Write through to the real filesystem. Without this the file existed only in
+    // browser state and vanished from disk's point of view entirely.
+    writeWorkspaceFile(newFile.path, newFile.content ?? '').catch(error =>
+      reportFsError('create', newFile.path, error)
+    );
   };
 
   const addFolderToTree = (folder: FileNode) => {
@@ -489,6 +499,19 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteFile = (fileId: string) => {
+    // Resolve the path before the tree is filtered, so the file can be removed from disk too.
+    const findNode = (nodes: FileNode[]): FileNode | undefined => {
+      for (const node of nodes) {
+        if (node.id === fileId) return node;
+        if (node.children) {
+          const found = findNode(node.children);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+    const target = findNode(fileTree);
+
     const deletedIds: string[] = [];
     const collectIds = (node: FileNode) => {
       deletedIds.push(node.id);
@@ -529,6 +552,12 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       });
       return remaining;
     });
+
+    if (target?.path && target.type !== 'folder') {
+      clearTimeout(saveTimers.current[target.path]);
+      delete saveTimers.current[target.path];
+      deleteWorkspaceFile(target.path).catch(error => reportFsError('delete', target.path, error));
+    }
   };
 
   const saveAssetToProject = (fileName: string, content: string, language?: string) => {
@@ -609,7 +638,26 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       if (node.id === fileId) return { ...node, content };
       return node.children ? { ...node, children: updateTree(node.children) } : node;
     });
+
     setFileTree(prev => updateTree(prev));
+
+    const locate = (nodes: FileNode[]): FileNode | undefined => {
+      for (const node of nodes) {
+        if (node.id === fileId) return node;
+        if (node.children) {
+          const found = locate(node.children);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+    const path = locate(fileTree)?.path;
+    if (!path) return;
+    clearTimeout(saveTimers.current[path]);
+    saveTimers.current[path] = setTimeout(() => {
+      delete saveTimers.current[path];
+      writeWorkspaceFile(path, content).catch(error => reportFsError('write', path, error));
+    }, 800);
   };
 
   const toggleSidebar = (tab?: ActivityTab) => {
