@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
@@ -122,6 +123,10 @@ function resolveRequestedShell(requestedId: string | null): ResolvedShell | null
 
   return available[0] ?? null;
 }
+import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import { WebSocketServer, WebSocket } from "ws";
+import os from "os";
+import fs from "fs/promises";
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -280,6 +285,16 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
     }
     for (const entry of entries) {
       if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
+async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
+  const files: Array<{ path: string; content: string }> = [];
+  const maxFiles = 120;
+  const maxTotalBytes = 900_000;
+
+  async function walk(directory: string): Promise<void> {
+    if (files.length >= maxFiles || files.reduce((sum, file) => sum + file.content.length, 0) >= maxTotalBytes) return;
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (files.length >= maxFiles) return;
       if (entry.isDirectory() && WORKSPACE_IGNORED_DIRECTORIES.has(entry.name)) continue;
       const absolutePath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
@@ -293,6 +308,7 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
         const trimmed = content.slice(0, WORKSPACE_MAX_FILE_BYTES);
         files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: trimmed });
         totalBytes += trimmed.length;
+        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: content.slice(0, 120_000) });
       } catch {
         // Ignore unreadable or concurrently removed files during discovery.
       }
@@ -380,6 +396,22 @@ async function getWorkspaceContext(
     context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server read ${considered} project files under ${WORKSPACE_ROOT} and selected the ${selected.length} most relevant to this request. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. If you need a file that is not listed, name the file you need rather than guessing at its contents.\n${body}\n`,
     fileCount: selected.length,
     considered
+async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
+  const discoveredWorkspace = await discoverWorkspace(process.cwd());
+  const workspaceFiles = discoveredWorkspace.length > 0
+    ? discoveredWorkspace
+    : (Array.isArray(workspace) ? workspace : []);
+  if (workspaceFiles.length === 0) {
+    console.warn(`[Workspace discovery] No readable source files found under ${process.cwd()}`);
+    return {
+      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${process.cwd()} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
+      fileCount: 0
+    };
+  }
+  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${process.cwd()}`);
+  return {
+    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${process.cwd()}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
+    fileCount: workspaceFiles.length
   };
 }
 
@@ -764,6 +796,58 @@ async function startServer() {
     return res.json({ success: true, models: discovered, warnings: errors });
   });
 
+  app.post("/api/provider-models", async (req, res) => {
+    const { keys } = req.body || {};
+    const discovered: any[] = [];
+    const errors: string[] = [];
+
+    const openRouterKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
+    if (openRouterKey) {
+      try {
+        const openai = createOpenRouterClient(openRouterKey, "DevPilotX Model Catalog");
+        const models = await openai.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "openrouter")));
+      } catch (error: any) {
+        errors.push(`OpenRouter: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const groqKey = String(keys?.groq || process.env.GROQ_API_KEY || "").trim();
+    if (groqKey) {
+      try {
+        const groq = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
+        const models = await groq.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "groq")));
+      } catch (error: any) {
+        errors.push(`Groq: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const geminiKey = String(keys?.gemini || process.env.GEMINI_API_KEY || "").trim();
+    if (geminiKey) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`);
+        if (!response.ok) throw new Error(`Gemini model catalog request failed (${response.status})`);
+        const data = await response.json() as { models?: any[] };
+        discovered.push(...(data.models || [])
+          .filter(model => String(model.supportedGenerationMethods || []).includes('generateContent'))
+          .map(model => toDiscoveredModel({
+            id: String(model.name || '').replace(/^models\//, ''),
+            name: model.displayName,
+            description: model.description,
+            context_length: model.inputTokenLimit
+          }, "gemini")));
+      } catch (error: any) {
+        errors.push(`Gemini: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn("[Provider Models Warning]:", errors.join("; "));
+    }
+    return res.json({ success: true, models: discovered, warnings: errors });
+  });
+
   // Test Provider Endpoint for instant verification in Settings
   app.post("/api/test-provider", async (req, res) => {
     try {
@@ -897,6 +981,7 @@ async function startServer() {
         .map((m: any) => m.content)
         .join("\n");
       const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
+      const workspaceDiscovery = await getWorkspaceContext(workspace);
       const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
         agentModeInstruction(agentMode) +
         ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceDiscovery.context;
@@ -1202,6 +1287,7 @@ async function startServer() {
           workspaceFilesDiscovered: workspaceDiscovery.fileCount,
           workspaceFilesConsidered: workspaceDiscovery.considered,
           workspaceContextBytes: workspaceDiscovery.context.length
+          workspaceFilesDiscovered: workspaceDiscovery.fileCount
         }
       });
     } catch (error: any) {
@@ -1367,6 +1453,7 @@ Structure your report into clear Markdown sections:
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
       const workspaceDiscovery = await getWorkspaceContext(workspace, String(query || ""));
+      const workspaceDiscovery = await getWorkspaceContext(workspace);
 
       let report = "";
       let sources: { title: string; url: string; snippet?: string }[] = [];
@@ -1604,6 +1691,26 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           message: `Could not start ${shellInfo.label} (${reason}). Choose a different shell from the dropdown.`
         })
       );
+    terminalServer.handleUpgrade(request, socket, head, ws => {
+      terminalServer.emit("connection", ws, request);
+    });
+  });
+
+  terminalServer.on("connection", (ws: WebSocket) => {
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash");
+    const shellArgs = isWindows ? [] : ["-i"];
+    let shellProcess: ChildProcessWithoutNullStreams;
+
+    try {
+      shellProcess = spawn(shell, shellArgs, {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: "pipe",
+        windowsHide: true,
+      });
+    } catch (error: any) {
+      ws.send(JSON.stringify({ type: "error", message: error?.message || "Unable to start shell." }));
       ws.close();
       return;
     }
@@ -1627,6 +1734,12 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
       if (closed) return;
       closed = true;
       send("exit", `\r\n[process exited${signal ? ` with signal ${signal}` : ` with code ${exitCode}`}]\r\n`);
+    send("ready", `DevPilotX terminal connected to ${shell}\r\n`);
+    shellProcess.stdout.on("data", data => send("output", data.toString()));
+    shellProcess.stderr.on("data", data => send("output", data.toString()));
+    shellProcess.on("error", error => send("error", error.message));
+    shellProcess.on("exit", (code, signal) => {
+      send("exit", `\r\n[process exited${code === null ? ` with ${signal}` : ` with code ${code}`}]\r\n`);
       if (ws.readyState === WebSocket.OPEN) ws.close();
     });
 
@@ -1656,6 +1769,13 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
         } else if (message.type === "interrupt") {
           // Ctrl+C goes through the pty so the shell handles it, rather than us signalling.
           term.write("\u0003");
+        const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
+        if (message.type === "command" && typeof message.data === "string") {
+          shellProcess.stdin.write(`${message.data}${isWindows ? "\r\n" : os.EOL}`);
+        } else if (message.type === "input" && typeof message.data === "string") {
+          shellProcess.stdin.write(message.data);
+        } else if (message.type === "interrupt") {
+          shellProcess.kill("SIGINT");
         }
       } catch {
         send("error", "Invalid terminal message.");
@@ -1684,6 +1804,12 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
         auth: AUTH_TOKEN ? "token" : "none"
       })}`
     );
+      if (!shellProcess.killed) shellProcess.kill();
+    });
+  });
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
