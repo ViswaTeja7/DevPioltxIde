@@ -809,7 +809,8 @@ function buildEnhancedSystemPrompt(
   skills: any[] = [],
   trainingProfile: any = null,
   trainingExamples: any[] = [],
-  knowledgeDocs: any[] = []
+  knowledgeDocs: any[] = [],
+  query: string = ""
 ): string {
   let prompt = `You are DevPilotX, an expert AI developer assistant inside a modern IDE, equipped with Claude-style behavioral skills and custom training demonstrations.\nProvide high-quality, production-ready, clean, well-typed code, explanations, and architectural guidance.\n`;
 
@@ -842,7 +843,21 @@ function buildEnhancedSystemPrompt(
   }
 
   // 2. Active Claude-style Skills
-  const activeSkills = (skills || []).filter((s: any) => s && s.enabled);
+  // Skills carry triggers for a reason: injecting every enabled skill into every request
+  // would put every skill's instructions and exemplars into the prompt whether or not they
+  // are relevant, which is exactly the kind of context bloat that breaks requests. Only
+  // skills whose triggers match the request are applied. A trigger of "*" means always on.
+  const haystack = String(query || "").toLowerCase();
+  const activeSkills = (skills || []).filter((s: any) => {
+    if (!s || !s.enabled) return false;
+    const triggers = Array.isArray(s.triggers) ? s.triggers : [];
+    if (triggers.length === 0) return false;
+    if (triggers.some((t: any) => String(t).trim() === "*")) return true;
+    return triggers.some((t: any) => {
+      const term = String(t || "").toLowerCase().trim();
+      return term.length > 0 && haystack.includes(term);
+    });
+  });
   if (activeSkills.length > 0) {
     prompt += `\n[ACTIVE AGENT SKILLS & SPECIALIZATIONS (${activeSkills.length} SKILLS ACTIVE)]\n`;
     prompt += `You have specialized skills enabled. Strictly obey their instructions and guidelines:\n\n`;
@@ -1244,7 +1259,7 @@ async function startServer() {
         .map((m: any) => m.content)
         .join("\n");
       const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
-      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
+      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs, workspaceQuery) +
         agentModeInstruction(agentMode) +
         ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceDiscovery.context;
 
@@ -1628,7 +1643,7 @@ async function startServer() {
         const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
 
         const systemPrompt =
-          buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
+          buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs, workspaceQuery) +
           agentModeInstruction(agentMode) +
           AGENT_ACTION_PROTOCOL +
           AGENT_LOOP_PROTOCOL +

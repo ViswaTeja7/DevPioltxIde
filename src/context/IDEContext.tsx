@@ -96,13 +96,24 @@ const KNOWLEDGE_DOCS_STORAGE_KEY = 'devpilotx_knowledge_docs_v1';
 const FILE_TREE_STORAGE_KEY = 'devpilotx_file_tree_v1';
 
 const getInitialSkills = (): AgentSkill[] => {
+  let saved: AgentSkill[] | null = null;
   try {
-    const saved = localStorage.getItem(SKILLS_STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    const raw = localStorage.getItem(SKILLS_STORAGE_KEY);
+    if (raw) saved = JSON.parse(raw);
   } catch (e) {
     console.warn('Failed to load saved skills', e);
   }
-  return DEFAULT_BUILTIN_SKILLS;
+  if (!saved || !Array.isArray(saved)) return DEFAULT_BUILTIN_SKILLS;
+
+  // Merge by id rather than letting saved state win outright. Saved state carries the user's
+  // edits and custom skills, but built-ins added in a later version still have to appear for
+  // anyone who already has skills stored -- otherwise shipping new built-ins does nothing.
+  const byId = new Map<string, AgentSkill>();
+  for (const skill of DEFAULT_BUILTIN_SKILLS) byId.set(skill.id, skill);
+  for (const skill of saved) {
+    if (skill && typeof skill.id === 'string') byId.set(skill.id, skill);
+  }
+  return [...byId.values()];
 };
 
 const getInitialTrainingExamples = (): TrainingExample[] => {
