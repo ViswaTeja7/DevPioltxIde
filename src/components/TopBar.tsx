@@ -80,7 +80,7 @@ export const TopBar = () => {
           <ModelIcon type={selectedModel.iconType} size={13} />
           <span className="font-medium max-w-[120px] truncate">{selectedModel.name}</span>
           <span className="text-[9px] text-[#58A6FF] font-semibold bg-[#1F6FEB]/15 px-1 py-0.2 rounded border border-[#388BFD]/30">
-            Copilot
+            DevPilotX
           </span>
         </button>
 
@@ -136,4 +136,3 @@ export const TopBar = () => {
     </div>
   );
 };
-

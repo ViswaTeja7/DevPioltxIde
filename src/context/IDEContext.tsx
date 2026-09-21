@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   ActivityTab, 
   PanelTab, 
@@ -12,7 +12,8 @@ import {
   AgentSkill,
   TrainingExample,
   KnowledgeDoc,
-  AgentTrainingProfile
+  AgentTrainingProfile,
+  AgentMode
 } from '../types';
 import { initialFileTree } from '../data';
 import { AI_MODELS, getModelById, DEFAULT_MODEL_ID } from '../constants/models';
@@ -54,12 +55,16 @@ interface IDEState {
   llmConfig: LLMConfig;
   updateLLMConfig: (config: Partial<LLMConfig> | ((prev: LLMConfig) => LLMConfig)) => void;
   selectedModel: AIModel;
+  availableModels: AIModel[];
+  refreshProviderModels: () => Promise<void>;
   selectModel: (modelId: string) => void;
   isModelSelectorOpen: boolean;
   setIsModelSelectorOpen: (open: boolean) => void;
   setActiveView: (view: ActiveView) => void;
   toggleSidebar: (tab?: ActivityTab) => void;
   togglePanel: (tab?: PanelTab) => void;
+  agentMode: AgentMode;
+  setAgentMode: (mode: AgentMode) => void;
   // Trainable Agent & Claude-style Skills System
   skills: AgentSkill[];
   addSkill: (skill: Omit<AgentSkill, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -77,6 +82,7 @@ interface IDEState {
   addKnowledgeDoc: (doc: Omit<KnowledgeDoc, 'id' | 'updatedAt'>) => void;
   updateKnowledgeDoc: (id: string, updates: Partial<KnowledgeDoc>) => void;
   deleteKnowledgeDoc: (id: string) => void;
+  addFolderToTree: (folder: FileNode) => void;
 }
 
 const IDEContext = createContext<IDEState | undefined>(undefined);
@@ -86,6 +92,7 @@ const SKILLS_STORAGE_KEY = 'devpilotx_skills_v1';
 const TRAINING_EXAMPLES_STORAGE_KEY = 'devpilotx_training_examples_v1';
 const TRAINING_PROFILE_STORAGE_KEY = 'devpilotx_training_profile_v1';
 const KNOWLEDGE_DOCS_STORAGE_KEY = 'devpilotx_knowledge_docs_v1';
+const FILE_TREE_STORAGE_KEY = 'devpilotx_file_tree_v1';
 
 const getInitialSkills = (): AgentSkill[] => {
   try {
@@ -125,6 +132,46 @@ const getInitialKnowledgeDocs = (): KnowledgeDoc[] => {
     console.warn('Failed to load saved knowledge docs', e);
   }
   return DEFAULT_KNOWLEDGE_DOCS;
+};
+
+const isFileNode = (value: unknown): value is FileNode => {
+  if (!value || typeof value !== 'object') return false;
+  const node = value as FileNode;
+  return typeof node.id === 'string'
+    && typeof node.name === 'string'
+    && (node.type === 'file' || node.type === 'folder')
+    && typeof node.path === 'string';
+};
+
+const sanitizeFileTree = (nodes: unknown): FileNode[] | null => {
+  if (!Array.isArray(nodes)) return null;
+  const result: FileNode[] = [];
+  for (const raw of nodes) {
+    if (!isFileNode(raw)) return null;
+    const sanitized: FileNode = { ...raw };
+    if (raw.type === 'folder' && Array.isArray((raw as FileNode).children)) {
+      const sanitizedChildren = sanitizeFileTree((raw as FileNode).children);
+      if (!sanitizedChildren) return null;
+      sanitized.children = sanitizedChildren;
+    }
+    result.push(sanitized);
+  }
+  return result;
+};
+
+const getInitialFileTree = (): FileNode[] => {
+  try {
+    const saved = localStorage.getItem(FILE_TREE_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const sanitized = sanitizeFileTree(parsed);
+      if (sanitized) return sanitized;
+      console.warn('Discarded malformed saved file tree');
+    }
+  } catch (e) {
+    console.warn('Failed to load saved file tree', e);
+  }
+  return initialFileTree;
 };
 
 const getInitialLLMConfig = (): LLMConfig => {
@@ -179,27 +226,15 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   const [openFiles, setOpenFiles] = useState<FileNode[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    {
-      id: 'msg-1',
-      role: 'agent',
-      content: 'Hello! I am DevPilotX with GitHub Copilot AI model integration. You can switch between Gemini 3.7 Flash, Claude 3.7 Sonnet, GPT-4o, DeepSeek R1, Llama 3.3, and local/cloud Ollama. How can I help you build today?',
-      timestamp: new Date(),
-      modelId: DEFAULT_MODEL_ID,
-      modelName: 'Gemini 3.7 Flash',
-    }
-  ]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [activeTaskType, setActiveTaskType] = useState<TaskType>('image');
-  const [taskChatHistory, setTaskChatHistory] = useState<TaskChatMessage[]>([
-    {
-      id: 'task-msg-welcome',
-      role: 'assistant',
-      taskType: 'general',
-      content: "👋 **Welcome to the Multimodal Task & Research Studio!**\n\nThis dedicated chat window is separate from coding tasks. You can use it to:\n\n* 🎨 **Generate Visual Assets & Images**: UI mockups, app logos, icons, vector illustrations, cyberpunk textures\n* 🔍 **Deep Web & Technical Research**: Benchmark comparisons, architecture trade-offs, live sources\n* 📄 **Technical Specs & PRDs**: Architecture Decision Records, user guides, OpenAPI specs\n* 💡 **Brainstorming & Planning**: Product roadmaps, system architectures, UX journeys\n\nSelect a task mode above or type your request below to get started!",
-      timestamp: new Date(),
-    }
-  ]);
+  const [taskChatHistory, setTaskChatHistory] = useState<TaskChatMessage[]>([]);
   const [llmConfig, setLLMConfig] = useState<LLMConfig>(getInitialLLMConfig);
+  const [agentMode, setAgentModeState] = useState<AgentMode>(() => {
+    const saved = localStorage.getItem('devpilotx_agent_mode');
+    return saved === 'plan' || saved === 'ask' || saved === 'agent' || saved === 'autonomous' ? saved : 'agent';
+  });
+  const [discoveredModels, setDiscoveredModels] = useState<AIModel[]>([]);
 
   // Trainable Agent & Claude-style Skills System State
   const [skills, setSkills] = useState<AgentSkill[]>(getInitialSkills);
@@ -317,7 +352,51 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     persistKnowledgeDocs(updated);
   };
 
-  const selectedModel = getModelById(llmConfig.selectedModelId || DEFAULT_MODEL_ID);
+  const availableModels = [...discoveredModels, ...AI_MODELS.filter(model =>
+    !discoveredModels.some(discovered => discovered.id === model.id)
+  )];
+  const selectedModel = availableModels.find(model => model.id === llmConfig.selectedModelId) || getModelById(DEFAULT_MODEL_ID);
+
+  const refreshProviderModels = async () => {
+    const response = await fetch('/api/provider-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys: llmConfig.keys })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Unable to load provider models');
+    }
+    setDiscoveredModels(data.models || []);
+  };
+
+  useEffect(() => {
+    const hasCredentials = Boolean(
+      llmConfig.keys.gemini.trim() ||
+      llmConfig.keys.openrouter.trim() ||
+      llmConfig.keys.groq.trim()
+    );
+    if (!hasCredentials) {
+      setDiscoveredModels([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      refreshProviderModels().catch(error => {
+        console.warn('Failed to refresh provider models', error);
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [llmConfig.keys.gemini, llmConfig.keys.openrouter, llmConfig.keys.groq]);
+
+  // Persist file tree (create / delete / edit) so changes survive a page reload.
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILE_TREE_STORAGE_KEY, JSON.stringify(fileTree));
+    } catch (e) {
+      console.warn('Failed to save file tree to localStorage', e);
+    }
+  }, [fileTree]);
 
   const selectModel = (modelId: string) => {
     const targetModel = getModelById(modelId);
@@ -348,6 +427,11 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const setAgentMode = (mode: AgentMode) => {
+    setAgentModeState(mode);
+    localStorage.setItem('devpilotx_agent_mode', mode);
+  };
+
   const openFile = (file: FileNode) => {
     if (file.type === 'folder') return;
     if (!openFiles.find((f) => f.id === file.id)) {
@@ -372,9 +456,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
 
   const createNewFile = (fileName?: string, content?: string) => {
     const defaultName = fileName || `untitled-${openFiles.length + 1}.tsx`;
-    const defaultContent = content !== undefined 
-      ? content 
-      : `// ${defaultName}\nimport React from 'react';\n\nexport default function CustomComponent() {\n  return (\n    <div>\n      <h1>New File</h1>\n    </div>\n  );\n}\n`;
+    const defaultContent = content !== undefined ? content : '';
 
     const getLanguageFromName = (name: string) => {
       if (name.endsWith('.tsx') || name.endsWith('.ts')) return 'typescript';
@@ -396,6 +478,12 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     setFileTree((prev) => [...prev, newFile]);
     setOpenFiles((prev) => [...prev, newFile]);
     setActiveFileId(newFile.id);
+    setActiveView('editor');
+    setActiveActivity('explorer');
+  };
+
+  const addFolderToTree = (folder: FileNode) => {
+    setFileTree((prev) => [...prev, folder]);
     setActiveView('editor');
     setActiveActivity('explorer');
   };
@@ -470,16 +558,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const clearChatHistory = () => {
-    setChatHistory([
-      {
-        id: `msg-${Date.now()}`,
-        role: 'agent',
-        content: `Chat cleared. Ready for your prompt with ${selectedModel.name}.`,
-        timestamp: new Date(),
-        modelId: selectedModel.id,
-        modelName: selectedModel.name,
-      }
-    ]);
+    setChatHistory([]);
   };
 
   const addTaskChatMessage = (msg: Omit<TaskChatMessage, 'id' | 'timestamp'>) => {
@@ -495,31 +574,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     if (taskType) {
       setTaskChatHistory((prev) => prev.filter((m) => m.taskType !== taskType));
     } else {
-      setTaskChatHistory([
-        {
-          id: `task-msg-${Date.now()}`,
-          role: 'assistant',
-          taskType: activeTaskType,
-          content: `Task chat cleared. Ready for new ${activeTaskType} generation or research!`,
-          timestamp: new Date(),
-        }
-      ]);
-    }
-  };
-
-  const toggleSidebar = (tab?: ActivityTab) => {
-    if (tab) {
-      if (activeActivity === tab) {
-        setActiveActivity(null);
-      } else {
-        setActiveActivity(tab);
-      }
-    } else {
-      if (activeActivity !== null) {
-        setActiveActivity(null);
-      } else {
-        setActiveActivity(lastActiveActivity || 'explorer');
-      }
+      setTaskChatHistory([]);
     }
   };
 
@@ -549,7 +604,20 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateFileContent = (fileId: string, content: string) => {
-    setOpenFiles(openFiles.map(f => f.id === fileId ? { ...f, content } : f));
+    setOpenFiles(prev => prev.map(f => f.id === fileId ? { ...f, content } : f));
+    const updateTree = (nodes: FileNode[]): FileNode[] => nodes.map(node => {
+      if (node.id === fileId) return { ...node, content };
+      return node.children ? { ...node, children: updateTree(node.children) } : node;
+    });
+    setFileTree(prev => updateTree(prev));
+  };
+
+  const toggleSidebar = (tab?: ActivityTab) => {
+    if (tab) {
+      setActiveActivity(activeActivity === tab ? null : tab);
+    } else {
+      setActiveActivity(activeActivity === null ? 'explorer' : null);
+    }
   };
 
   return (
@@ -574,6 +642,8 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
         closeFile,
         closeAllFiles,
         createNewFile,
+        deleteFile,
+        addFolderToTree,
         saveAssetToProject,
         setActiveFileId,
         addChatMessage,
@@ -584,12 +654,16 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
         llmConfig,
         updateLLMConfig,
         selectedModel,
+        availableModels,
+        refreshProviderModels,
         selectModel,
         isModelSelectorOpen,
         setIsModelSelectorOpen,
         setActiveView,
         toggleSidebar,
         togglePanel,
+        agentMode,
+        setAgentMode,
         // Skills and Trainable Agent
         skills,
         addSkill,

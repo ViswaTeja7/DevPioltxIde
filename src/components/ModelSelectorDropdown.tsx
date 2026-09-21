@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useIDE } from '../context/IDEContext';
-import { AI_MODELS, getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
 import { ModelIcon } from './ModelIcon';
 import { AIModel } from '../types';
 import { Search, Check, ChevronDown, Sparkles, Key, ExternalLink, Zap, Brain, SlidersHorizontal, Info, Gift } from 'lucide-react';
@@ -16,14 +16,14 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   className = '',
   onOpenSettings,
 }) => {
-  const { llmConfig, updateLLMConfig, setActiveActivity } = useIDE();
+  const { llmConfig, updateLLMConfig, setActiveActivity, availableModels } = useIDE();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedModel = getModelById(llmConfig.selectedModelId || DEFAULT_MODEL_ID);
+  const selectedModel = availableModels.find(model => model.id === llmConfig.selectedModelId) || getModelById(DEFAULT_MODEL_ID);
 
   // Close when clicking outside
   useEffect(() => {
@@ -58,7 +58,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   };
 
   // Filter models
-  const filteredModels = AI_MODELS.filter((model) => {
+  const filteredModels = availableModels.filter((model) => {
     const matchesSearch =
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.providerLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,7 +94,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] hover:border-[#58A6FF]/50 text-xs text-[#C9D1D9] transition-all group select-none shadow-sm"
-          title="Switch Copilot AI Model"
+          title="Switch DevPilotX AI Model"
         >
           <ModelIcon type={selectedModel.iconType} size={13} className="p-0.5" />
           <span className="font-medium text-white group-hover:text-[#58A6FF] transition-colors max-w-[140px] truncate">
@@ -136,7 +136,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B949E] flex items-center gap-1.5">
                 <Sparkles size={12} className="text-[#58A6FF]" />
-                Select Copilot AI Model
+                Select DevPilotX AI Model
               </span>
               <span className="text-[10px] text-[#8B949E]">
                 {filteredModels.length} models
@@ -203,7 +203,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
               </div>
             ) : (
               <>
-                {/* Copilot Recommended Section */}
+                {/* DevPilotX Recommended Section */}
                 {recommendedModels.length > 0 && activeCategory === 'all' && !searchQuery && (
                   <div>
                     <div className="text-[10px] font-bold uppercase tracking-wider text-[#58A6FF] px-2 mb-1.5 flex items-center gap-1">

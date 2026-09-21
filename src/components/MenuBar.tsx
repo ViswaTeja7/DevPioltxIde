@@ -363,7 +363,7 @@ export const MenuBar = () => {
       },
       {
         id: 'side-ai',
-        label: 'Copilot Assistant Panel',
+        label: 'DevPilotX Assistant Panel',
         icon: Sparkles,
         shortcut: 'Ctrl+Shift+A',
         action: () => selectActivityAndEditor('ai'),
@@ -508,7 +508,7 @@ export const MenuBar = () => {
       },
       {
         id: 'help-copilot',
-        label: 'Multi-Model Copilot Guide',
+        label: 'Multi-Model DevPilotX Guide',
         icon: Sparkles,
         action: () => setIsModelSelectorOpen(true),
       },
@@ -629,7 +629,7 @@ export const MenuBar = () => {
                 { key: 'Ctrl + B', desc: 'Toggle Primary Sidebar' },
                 { key: 'Ctrl + `', desc: 'Toggle Bottom Terminal Panel' },
                 { key: 'Ctrl + Shift + F', desc: 'Search & Replace in Project' },
-                { key: 'Ctrl + Shift + A', desc: 'Open Copilot AI Assistant' },
+                { key: 'Ctrl + Shift + A', desc: 'Open DevPilotX AI Assistant' },
                 { key: 'Ctrl + Shift + G', desc: 'Open Source Control (Git)' },
                 { key: 'Ctrl + Shift + D', desc: 'Open Run and Debug' },
                 { key: 'Ctrl + Shift + X', desc: 'Open Extensions Marketplace' },
@@ -651,54 +651,6 @@ export const MenuBar = () => {
                 className="px-3 py-1 bg-[#21262D] hover:bg-[#30363D] text-white rounded text-xs font-medium"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* About Modal */}
-      {showAboutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-[#161B22] border border-[#30363D] rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-[#30363D] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Info size={18} className="text-[#A371F7]" />
-                <h3 className="font-semibold text-white text-sm">About DevPilotX IDE</h3>
-              </div>
-              <button
-                onClick={() => setShowAboutModal(false)}
-                className="p-1 text-[#8B949E] hover:text-white rounded hover:bg-[#21262D]"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="p-5 text-xs text-[#8B949E] space-y-3 leading-relaxed">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#1F6FEB] flex items-center justify-center text-white font-bold text-base">
-                  DP
-                </div>
-                <div>
-                  <h4 className="text-white font-bold text-sm">DevPilotX IDE</h4>
-                  <p className="text-[11px] text-[#8B949E]">v2.5.0 • Enterprise Edition</p>
-                </div>
-              </div>
-              <p>
-                Next-generation cloud IDE featuring Multi-Model LLMs (Gemini 3.7, Claude 3.7, GPT-4o, DeepSeek R1),
-                Anthropic Claude-style Agent Skills & Training Studio, and high-performance Monaco code editor.
-              </p>
-              <div className="p-2.5 bg-[#0D1117] border border-[#30363D] rounded-lg font-mono text-[11px] text-[#C9D1D9] space-y-1">
-                <div>Active Model: <span className="text-[#58A6FF]">{selectedModel.name}</span></div>
-                <div>Active View: <span className="text-[#3FB950]">{activeView}</span></div>
-                <div>Active Side Panel: <span className="text-[#E3B341]">{activeActivity || 'Collapsed'}</span></div>
-              </div>
-            </div>
-            <div className="p-3 bg-[#0D1117] border-t border-[#30363D] flex justify-end">
-              <button
-                onClick={() => setShowAboutModal(false)}
-                className="px-3 py-1 bg-[#1F6FEB] hover:bg-[#388BFD] text-white rounded text-xs font-medium"
-              >
-                OK
               </button>
             </div>
           </div>

@@ -4,6 +4,193 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
+import { createServer } from "http";
+import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import { WebSocketServer, WebSocket } from "ws";
+import os from "os";
+import fs from "fs/promises";
+
+function normalizeOpenRouterApiKey(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .replace(/^["'`]|["'`]$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+}
+
+function createOpenRouterClient(apiKey: string, title: string): OpenAI {
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey,
+    defaultHeaders: {
+      "HTTP-Referer": "https://devpilotx.app",
+      "X-Title": title,
+    }
+  });
+}
+
+function modelIconType(id: string): string {
+  if (id.includes('claude') || id.startsWith('anthropic/')) return 'claude';
+  if (id.includes('deepseek')) return 'deepseek';
+  if (id.includes('llama') || id.startsWith('meta-llama/')) return 'meta';
+  if (id.includes('qwen')) return 'qwen';
+  if (id.includes('mistral')) return 'mistral';
+  if (id.includes('minimax')) return 'minimax';
+  if (id.includes('gemini')) return 'gemini';
+  if (id.includes('gpt') || id.startsWith('openai/')) return 'openai';
+  if (id.includes('nvidia') || id.includes('nemotron')) return 'nvidia';
+  if (id.includes('groq')) return 'groq';
+  return 'openai';
+}
+
+function toDiscoveredModel(model: any, provider: string): any {
+  const id = String(model.id || model.name || '');
+  const name = String(model.name || id);
+  const isFree = provider === 'openrouter' &&
+    (id.endsWith(':free') || (model.pricing?.prompt === '0' && model.pricing?.completion === '0'));
+
+  return {
+    id,
+    name,
+    provider,
+    providerLabel: provider === 'openrouter' ? 'OpenRouter' : provider === 'gemini' ? 'Google Gemini' : provider === 'groq' ? 'Groq' : 'Ollama',
+    description: model.description || `Available ${provider} model`,
+    tags: ['Live catalog', provider],
+    badge: isFree ? 'Free Tier' : 'Live',
+    contextWindow: model.context_length ? `${Math.round(model.context_length / 1000)}k tokens` : 'Provider catalog',
+    speed: 'Fast',
+    iconType: modelIconType(id),
+    requiresCustomKey: provider !== 'gemini',
+    isFree,
+    category: 'coding'
+  };
+}
+
+function agentModeInstruction(mode: string = "agent"): string {
+  switch (mode) {
+    case "plan":
+      return "\n[AGENT MODE: PLAN]\nFirst inspect the supplied workspace context automatically, then analyze the request and produce a clear, ordered implementation plan. Do not claim that changes were made and do not execute actions.";
+    case "ask":
+      return "\n[AGENT MODE: ASK]\nFirst inspect the supplied workspace context automatically when relevant, then answer the user's question directly and explain relevant trade-offs. Do not take action or invent completed work.";
+    case "autonomous":
+      return "\n[AGENT MODE: AUTONOMOUS]\nTake the request from start to finish with minimal clarification. Make reasonable decisions, provide concrete results, and clearly state any assumptions or blockers. When code changes are needed, return executable file actions using the DevPilotX action protocol below.";
+    case "agent":
+    default:
+      return "\n[AGENT MODE: AGENT]\nAct as an implementation-focused coding agent. Inspect the supplied workspace, then return production-ready file actions for requested changes using the DevPilotX action protocol below. Never claim a file was changed unless you returned an action for it.";
+  }
+
+}
+
+const WORKSPACE_IGNORED_DIRECTORIES = new Set([".git", "node_modules", "dist", "build", ".next", "coverage"]);
+const WORKSPACE_TEXT_EXTENSIONS = new Set([
+  ".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".html", ".md", ".txt", ".yml", ".yaml", ".xml", ".svg"
+]);
+
+async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
+  const files: Array<{ path: string; content: string }> = [];
+  const maxFiles = 120;
+  const maxTotalBytes = 900_000;
+
+  async function walk(directory: string): Promise<void> {
+    if (files.length >= maxFiles || files.reduce((sum, file) => sum + file.content.length, 0) >= maxTotalBytes) return;
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (files.length >= maxFiles) return;
+      if (entry.isDirectory() && WORKSPACE_IGNORED_DIRECTORIES.has(entry.name)) continue;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absolutePath);
+        continue;
+      }
+      const extension = path.extname(entry.name).toLowerCase();
+      if (!WORKSPACE_TEXT_EXTENSIONS.has(extension) && entry.name !== "Dockerfile") continue;
+      try {
+        const content = await fs.readFile(absolutePath, "utf8");
+        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: content.slice(0, 120_000) });
+      } catch {
+        // Ignore unreadable or concurrently removed files during discovery.
+      }
+    }
+  }
+
+  await walk(root);
+  return files;
+}
+
+async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
+  const discoveredWorkspace = await discoverWorkspace(process.cwd());
+  const workspaceFiles = discoveredWorkspace.length > 0
+    ? discoveredWorkspace
+    : (Array.isArray(workspace) ? workspace : []);
+  if (workspaceFiles.length === 0) {
+    console.warn(`[Workspace discovery] No readable source files found under ${process.cwd()}`);
+    return {
+      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${process.cwd()} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
+      fileCount: 0
+    };
+  }
+  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${process.cwd()}`);
+  return {
+    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${process.cwd()}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
+    fileCount: workspaceFiles.length
+  };
+}
+
+const AGENT_ACTION_PROTOCOL = `
+[DEVPILOTX ACTION PROTOCOL]
+For Agent and Autonomous modes, include any requested code changes in a JSON code block tagged \`\`\`devpilotx-actions.
+The block must contain an array of actions. Supported actions:
+{"type":"edit_file","path":"/relative/path","content":"complete new file contents","reason":"short explanation"}
+{"type":"create_file","path":"/relative/path","content":"complete new file contents","reason":"short explanation"}
+{"type":"delete_file","path":"/relative/path","reason":"short explanation"}
+{"type":"run_command","command":"npm test","reason":"short explanation"}
+Use complete file contents, never partial patches or ellipses. Only include run_command when it is safe and directly required; the host will ask for confirmation before executing commands. Keep the user-facing explanation outside the JSON block. If no file change is needed, omit the block.
+`;
+
+function parseAgentActions(text: string, mode: string): { text: string; actions: any[] } {
+  if (mode !== "agent" && mode !== "autonomous") return { text, actions: [] };
+  const match = text.match(/```devpilotx-actions\s*([\s\S]*?)```/i);
+  if (!match) return { text, actions: [] };
+  try {
+    const parsed = JSON.parse(match[1]);
+    const actions = Array.isArray(parsed) ? parsed : Array.isArray(parsed.actions) ? parsed.actions : [];
+    const validActions = actions.filter((action: any) =>
+      action && ['edit_file', 'create_file', 'delete_file', 'run_command'].includes(action.type) &&
+      (typeof action.path === 'string' || typeof action.command === 'string')
+    );
+    return { text: text.replace(match[0], '').trim(), actions: validActions };
+  } catch {
+    return { text, actions: [] };
+  }
+}
+
+async function getAvailableOpenRouterFallback(openai: OpenAI, requestedModel: string): Promise<string | null> {
+  const models = await openai.models.list();
+  const availableIds = new Set(
+    models.data
+      .map(model => model.id)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  if (availableIds.has(requestedModel)) {
+    return requestedModel;
+  }
+
+  const preferredModels = requestedModel.endsWith(":free")
+    ? [
+        "deepseek/deepseek-r1-0528:free",
+        "deepseek/deepseek-chat-v3-0324:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen-2.5-coder-32b-instruct:free",
+      ]
+    : [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3.5-haiku",
+        "meta-llama/llama-3.3-70b-instruct:free",
+      ];
+
+  return preferredModels.find(id => availableIds.has(id)) || null;
+}
 
 function generateVisualAssetFallback(prompt: string, style: string = 'modern', aspectRatio: string = '1:1') {
   let width = 800;
@@ -188,6 +375,58 @@ async function startServer() {
 
   app.use(express.json());
 
+  app.post("/api/provider-models", async (req, res) => {
+    const { keys } = req.body || {};
+    const discovered: any[] = [];
+    const errors: string[] = [];
+
+    const openRouterKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
+    if (openRouterKey) {
+      try {
+        const openai = createOpenRouterClient(openRouterKey, "DevPilotX Model Catalog");
+        const models = await openai.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "openrouter")));
+      } catch (error: any) {
+        errors.push(`OpenRouter: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const groqKey = String(keys?.groq || process.env.GROQ_API_KEY || "").trim();
+    if (groqKey) {
+      try {
+        const groq = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
+        const models = await groq.models.list();
+        discovered.push(...models.data.map(model => toDiscoveredModel(model, "groq")));
+      } catch (error: any) {
+        errors.push(`Groq: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    const geminiKey = String(keys?.gemini || process.env.GEMINI_API_KEY || "").trim();
+    if (geminiKey) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`);
+        if (!response.ok) throw new Error(`Gemini model catalog request failed (${response.status})`);
+        const data = await response.json() as { models?: any[] };
+        discovered.push(...(data.models || [])
+          .filter(model => String(model.supportedGenerationMethods || []).includes('generateContent'))
+          .map(model => toDiscoveredModel({
+            id: String(model.name || '').replace(/^models\//, ''),
+            name: model.displayName,
+            description: model.description,
+            context_length: model.inputTokenLimit
+          }, "gemini")));
+      } catch (error: any) {
+        errors.push(`Gemini: ${error?.message || "catalog unavailable"}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn("[Provider Models Warning]:", errors.join("; "));
+    }
+    return res.json({ success: true, models: discovered, warnings: errors });
+  });
+
   // Test Provider Endpoint for instant verification in Settings
   app.post("/api/test-provider", async (req, res) => {
     try {
@@ -204,22 +443,21 @@ async function startServer() {
       }
 
       if (provider === "openrouter") {
-        const rawKey = (keys?.openrouter || process.env.OPENROUTER_API_KEY || "").trim().replace(/^["'`]|["'`]$/g, '');
+        const rawKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
         if (!rawKey) {
           return res.status(400).json({ success: false, error: "OpenRouter API key is empty. Please enter your sk-or-v1-... key." });
         }
 
-        const openai = new OpenAI({
-          baseURL: "https://openrouter.ai/api/v1",
-          apiKey: rawKey,
-          defaultHeaders: {
-            "HTTP-Referer": "https://devpilotx.app",
-            "X-Title": "DevPilotX",
-            "Authorization": `Bearer ${rawKey}`
-          }
-        });
+        const openai = createOpenRouterClient(rawKey, "DevPilotX");
 
-        const testModel = modelId && !modelId.startsWith("gemini") ? modelId : "deepseek/deepseek-r1:free";
+        const requestedModel = modelId && !modelId.startsWith("gemini") ? modelId : "deepseek/deepseek-r1:free";
+        const testModel = await getAvailableOpenRouterFallback(openai, requestedModel);
+        if (!testModel) {
+          return res.status(404).json({
+            success: false,
+            error: `The requested OpenRouter model "${requestedModel}" is unavailable and no fallback model was found.`
+          });
+        }
         const completion = await openai.chat.completions.create({
           model: testModel,
           max_tokens: 15,
@@ -311,10 +549,13 @@ async function startServer() {
 
   app.post("/api/chat", async (req, res) => {
     try {
-      const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs } = req.body;
+      const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs);
+      const workspaceDiscovery = await getWorkspaceContext(workspace);
+      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
+        agentModeInstruction(agentMode) +
+        ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceDiscovery.context;
 
       // Determine provider from modelId if not explicitly matched
       let effectiveProvider = provider;
@@ -405,19 +646,11 @@ async function startServer() {
           }
         }
       } else if (effectiveProvider === "openrouter") {
-        const rawApiKey = (keys?.openrouter || process.env.OPENROUTER_API_KEY || "").trim().replace(/^["'`]|["'`]$/g, '');
+        const rawApiKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
         if (!rawApiKey) {
           responseText = `⚠️ **OpenRouter API Key Required**\n\nTo use **${modelId || 'this model'}**, please enter your OpenRouter API key in **Settings > Provider Credentials**.\n\n*Or switch to built-in **Gemini 3.7 Flash** which is active and ready.*`;
         } else {
-          const openai = new OpenAI({
-            baseURL: "https://openrouter.ai/api/v1",
-            apiKey: rawApiKey,
-            defaultHeaders: {
-              "HTTP-Referer": "https://devpilotx.app",
-              "X-Title": "DevPilotX IDE",
-              "Authorization": `Bearer ${rawApiKey}`
-            }
-          });
+          const openai = createOpenRouterClient(rawApiKey, "DevPilotX IDE");
           let targetModel = modelId || "anthropic/claude-3.7-sonnet";
           
           // Map retired or provider-unavailable slugs to active equivalents
@@ -430,6 +663,12 @@ async function startServer() {
           }
           
           try {
+            const requestedModel = targetModel;
+            const availableModel = await getAvailableOpenRouterFallback(openai, requestedModel);
+            if (availableModel) {
+              targetModel = availableModel;
+            }
+
             const openRouterMessages = (targetModel.includes('o1') || targetModel.includes('o3-mini'))
               ? [{ role: "developer", content: enhancedSystemPrompt }, ...cleanMessages]
               : [{ role: "system", content: enhancedSystemPrompt }, ...cleanMessages];
@@ -451,10 +690,10 @@ async function startServer() {
             } catch (initialErr: any) {
               const is404 = initialErr?.status === 404 || initialErr?.message?.includes("No endpoints found");
               if (is404) {
-                // Try fallback to active Meta Llama 3.3 or DeepSeek Free
-                const fallbackSlug = targetModel.endsWith(":free") 
-                  ? "meta-llama/llama-3.3-70b-instruct:free" 
-                  : "meta-llama/llama-3.3-70b-instruct";
+                const fallbackSlug = await getAvailableOpenRouterFallback(openai, requestedModel);
+                if (!fallbackSlug || fallbackSlug === targetModel) {
+                  throw initialErr;
+                }
                 
                 console.warn(`[OpenRouter] 404 on ${targetModel}, retrying with ${fallbackSlug}...`);
                 try {
@@ -609,11 +848,14 @@ async function startServer() {
       const activeSkillsCount = (skills || []).filter((s: any) => s && s.enabled).length;
       const activeExamplesCount = (trainingExamples || []).filter((e: any) => e && e.enabled).length;
 
+      const parsedAgentResponse = parseAgentActions(responseText, agentMode);
       res.json({ 
-        text: responseText,
+        text: parsedAgentResponse.text,
+        actions: parsedAgentResponse.actions,
         metadata: {
           skillsActiveCount: activeSkillsCount,
-          trainingExamplesCount: activeExamplesCount
+          trainingExamplesCount: activeExamplesCount,
+          workspaceFilesDiscovered: workspaceDiscovery.fileCount
         }
       });
     } catch (error: any) {
@@ -644,11 +886,16 @@ async function startServer() {
   // Dedicated Image Generation Endpoint for Non-Coding Tasks
   app.post("/api/generate-image", async (req, res) => {
     try {
-      const { prompt, aspectRatio = "1:1", style = "modern", engine = "auto", modelId, keys } = req.body;
+      const { prompt, aspectRatio = "1:1", style = "modern", engine = "auto", modelId, keys, agentMode } = req.body;
       if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
         return res.status(400).json({ error: "Image generation prompt is required." });
       }
 
+      const effectivePrompt = agentMode === "plan"
+        ? `Visual implementation plan for: ${prompt}`
+        : agentMode === "ask"
+        ? `Visual concept explanation for: ${prompt}`
+        : prompt;
       let imageUrl: string | null = null;
       let modelUsed = "FLUX.1 Schnell";
       let textFeedback = "";
@@ -719,9 +966,9 @@ async function startServer() {
       // If not produced yet, use our high-fidelity Neural Image Generator with model-specific tuning
       if (!imageUrl) {
         try {
-          imageUrl = getNeuralImageUrl(prompt, aspectRatio, style, modelId);
+          imageUrl = getNeuralImageUrl(effectivePrompt, aspectRatio, style, modelId);
         } catch (_neuralErr) {
-          imageUrl = generateVisualAssetFallback(prompt, style, aspectRatio);
+          imageUrl = generateVisualAssetFallback(effectivePrompt, style, aspectRatio);
           modelUsed = "DevPilotX Procedural Vector Engine";
         }
       }
@@ -743,7 +990,7 @@ async function startServer() {
   // Dedicated Deep Research & Grounded Web Search Endpoint
   app.post("/api/research", async (req, res) => {
     try {
-      const { query, depth = "detailed", focusArea = "technical", modelId = "gemini-3.8-flash", keys } = req.body;
+      const { query, depth = "detailed", focusArea = "technical", modelId = "gemini-3.8-flash", keys, agentMode, workspace } = req.body;
       if (!query || typeof query !== 'string' || !query.trim()) {
         return res.status(400).json({ error: "Research query is required." });
       }
@@ -762,7 +1009,7 @@ async function startServer() {
         }
       });
 
-      const systemInstruction = `You are DevPilotX Research Intelligence, an elite technical and multi-domain analyst.
+      const systemInstruction = `You are DevPilotX Research Intelligence, an elite technical and multi-domain analyst.${agentModeInstruction(agentMode)}
 Your mission: Conduct an exhaustive, objective, highly structured research briefing for: "${query}".
 
 Structure your report into clear Markdown sections:
@@ -773,6 +1020,7 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
+      const workspaceDiscovery = await getWorkspaceContext(workspace);
 
       let report = "";
       let sources: { title: string; url: string; snippet?: string }[] = [];
@@ -783,7 +1031,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           model: modelId && modelId.startsWith('gemini') ? modelId : 'gemini-3.8-flash',
           contents: `Conduct deep research and analysis on: "${query}". Depth: ${depth}. Focus area: ${focusArea}. Provide authoritative comparative breakdown with tables and concrete takeaways.`,
           config: {
-            systemInstruction,
+            systemInstruction: systemInstruction + workspaceDiscovery.context,
             tools: [{ googleSearch: {} }],
           }
         });
@@ -805,7 +1053,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
           model: modelId && modelId.startsWith('gemini') ? modelId : 'gemini-3.8-flash',
           contents: `Conduct deep research and comparative analysis on: "${query}". Depth: ${depth}. Focus area: ${focusArea}. Structure with Executive Summary, Comparative Table, Trade-offs, Architectural Recommendations, and Key Findings.`,
           config: {
-            systemInstruction,
+            systemInstruction: systemInstruction + workspaceDiscovery.context,
           }
         });
         report = fallback.text || "";
@@ -827,15 +1075,19 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   // Dedicated Multimodal Task Chat Endpoint (Docs, Brainstorming, Specs, Non-Coding)
   app.post("/api/task-chat", async (req, res) => {
     try {
-      const { messages, taskType = "general", modelId = "gemini-3.7-flash", provider, keys } = req.body;
+      const { messages, taskType = "general", modelId = "gemini-3.7-flash", provider, keys, agentMode, workspace } = req.body;
 
-      let systemInstruction = "You are DevPilotX Studio, a specialized assistant for non-coding tasks including visual ideation, technical writing, system documentation, and strategic planning.";
+      let systemInstruction = "You are DevPilotX Studio, a specialized assistant for non-coding tasks including visual ideation, technical writing, system documentation, and strategic planning." + agentModeInstruction(agentMode);
       if (taskType === 'docs') {
         systemInstruction = "You are DevPilotX Technical Writer & Documentation Specialist. Generate publication-ready technical specifications, Product Requirement Documents (PRDs), Architecture Decision Records (ADRs), API schemas, and README guides with pristine Markdown hierarchy, tables, and diagrams.";
       } else if (taskType === 'brainstorm') {
         systemInstruction = "You are DevPilotX Product Strategist & Brainstorming Partner. Help the user brainstorm innovative product concepts, UX workflows, market differentiators, feature matrices, and development roadmaps with creative clarity and structured prioritization.";
       } else if (taskType === 'research') {
         systemInstruction = "You are DevPilotX Research Intelligence. Provide objective analysis, comparative evaluations, and architectural trade-offs with clear structured findings.";
+      }
+      systemInstruction += agentModeInstruction(agentMode);
+      if (Array.isArray(workspace)) {
+        systemInstruction += `\n[CURRENT WORKSPACE]\n${workspace.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}`;
       }
 
       const cleanMessages = (messages || [])
@@ -864,17 +1116,9 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
         resolvedModel.startsWith("mistralai/");
 
       if (isOpenRouter) {
-        const rawKey = (keys?.openrouter || process.env.OPENROUTER_API_KEY || "").trim().replace(/^["'`]|["'`]$/g, '');
+        const rawKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
         if (rawKey) {
-          const openai = new OpenAI({
-            baseURL: "https://openrouter.ai/api/v1",
-            apiKey: rawKey,
-            defaultHeaders: {
-              "HTTP-Referer": "https://devpilotx.app",
-              "X-Title": "DevPilotX Multimodal Studio",
-              "Authorization": `Bearer ${rawKey}`
-            }
-          });
+          const openai = createOpenRouterClient(rawKey, "DevPilotX Multimodal Studio");
           const completion = await openai.chat.completions.create({
             model: resolvedModel,
             messages: [{ role: "system", content: systemInstruction }, ...cleanMessages],
@@ -943,7 +1187,76 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = createServer(app);
+  const terminalServer = new WebSocketServer({ noServer: true });
+
+  httpServer.on("upgrade", (request, socket, head) => {
+    const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
+    if (requestUrl.pathname !== "/ws/terminal") {
+      socket.destroy();
+      return;
+    }
+
+    terminalServer.handleUpgrade(request, socket, head, ws => {
+      terminalServer.emit("connection", ws, request);
+    });
+  });
+
+  terminalServer.on("connection", (ws: WebSocket) => {
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash");
+    const shellArgs = isWindows ? [] : ["-i"];
+    let shellProcess: ChildProcessWithoutNullStreams;
+
+    try {
+      shellProcess = spawn(shell, shellArgs, {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: "pipe",
+        windowsHide: true,
+      });
+    } catch (error: any) {
+      ws.send(JSON.stringify({ type: "error", message: error?.message || "Unable to start shell." }));
+      ws.close();
+      return;
+    }
+
+    const send = (type: string, data: string) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type, data }));
+      }
+    };
+
+    send("ready", `DevPilotX terminal connected to ${shell}\r\n`);
+    shellProcess.stdout.on("data", data => send("output", data.toString()));
+    shellProcess.stderr.on("data", data => send("output", data.toString()));
+    shellProcess.on("error", error => send("error", error.message));
+    shellProcess.on("exit", (code, signal) => {
+      send("exit", `\r\n[process exited${code === null ? ` with ${signal}` : ` with code ${code}`}]\r\n`);
+      if (ws.readyState === WebSocket.OPEN) ws.close();
+    });
+
+    ws.on("message", raw => {
+      try {
+        const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
+        if (message.type === "command" && typeof message.data === "string") {
+          shellProcess.stdin.write(`${message.data}${isWindows ? "\r\n" : os.EOL}`);
+        } else if (message.type === "input" && typeof message.data === "string") {
+          shellProcess.stdin.write(message.data);
+        } else if (message.type === "interrupt") {
+          shellProcess.kill("SIGINT");
+        }
+      } catch {
+        send("error", "Invalid terminal message.");
+      }
+    });
+
+    ws.on("close", () => {
+      if (!shellProcess.killed) shellProcess.kill();
+    });
+  });
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

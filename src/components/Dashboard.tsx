@@ -3,21 +3,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { UploadCloud, CheckCircle, AlertTriangle, Play, GitMerge, FileCode, RefreshCw } from 'lucide-react';
 import { RepoTree } from './RepoTree';
 
-const complexityData = [
-  { name: 'App.js', score: 4 },
-  { name: 'Utils.js', score: 12 },
-  { name: 'Auth.js', score: 8 },
-  { name: 'Dashboard.js', score: 15 },
-  { name: 'API.js', score: 25 },
-];
-
-const coverageData = [
-  { day: 'Mon', coverage: 78 },
-  { day: 'Tue', coverage: 80 },
-  { day: 'Wed', coverage: 75 },
-  { day: 'Thu', coverage: 82 },
-  { day: 'Fri', coverage: 85 },
-];
+const complexityData: { name: string; score: number; }[] = [];
+const coverageData: { day: string; coverage: number; }[] = [];
 
 export const Dashboard = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -56,24 +43,7 @@ export const Dashboard = () => {
               <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider mb-4 flex items-center gap-2">
                 <FileCode size={14} /> Project Summary
               </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-2xl font-bold text-white">42</div>
-                  <div className="text-xs text-[#8B949E]">Files Analyzed</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-[#58A6FF]">TS/React</div>
-                  <div className="text-xs text-[#8B949E]">Primary Stack</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-[#3FB950]">85%</div>
-                  <div className="text-xs text-[#8B949E]">Test Coverage</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-[#F85149]">15</div>
-                  <div className="text-xs text-[#8B949E]">Critical Issues</div>
-                </div>
-              </div>
+
             </div>
 
             {/* Test Coverage Trend */}
@@ -120,37 +90,7 @@ export const Dashboard = () => {
                 </div>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-[#0D1117] border border-[#30363D] rounded">
-                  <div>
-                    <div className="text-sm font-medium text-white mb-0.5">Refactor `API.js` to reduce cyclomatic complexity</div>
-                    <div className="text-xs text-[#8B949E]">AI proposes splitting `handleRequest` into 3 sub-functions.</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="text-xs text-[#58A6FF] hover:underline">Preview Diff</button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-[#0D1117] border border-[#30363D] rounded">
-                  <div>
-                    <div className="text-sm font-medium text-white mb-0.5">Resolve circular dependency in `Auth.js`</div>
-                    <div className="text-xs text-[#8B949E]">Extract shared types to break cycle with `User.js`.</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="text-xs text-[#58A6FF] hover:underline">Preview Diff</button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-[#0D1117] border border-[#30363D] rounded opacity-75">
-                  <div>
-                    <div className="text-sm font-medium text-white mb-0.5 flex items-center gap-1.5">
-                      <RefreshCw size={12} className="text-[#3FB950]" /> Applied: Fix memory leak in `useEffect`
-                    </div>
-                    <div className="text-xs text-[#8B949E]">Commit hash: a1b2c3d</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="text-xs text-[#F85149] hover:underline">Rollback</button>
-                  </div>
-                </div>
-              </div>
+
             </div>
 
           </div>

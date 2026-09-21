@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useIDE } from '../context/IDEContext';
-import { Send, Sparkles, Code, GitPullRequest, Settings, Terminal, Bot, Copy, Check, Info, ShieldAlert, Cpu, BrainCircuit, GraduationCap } from 'lucide-react';
+import { Send, Settings, Copy, Check, BrainCircuit, GraduationCap } from 'lucide-react';
 import { ModelSelectorDropdown } from './ModelSelectorDropdown';
 import { ModelIcon } from './ModelIcon';
 import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { AgentModeSelector } from './AgentModeSelector';
 
 export const AIAssistant = () => {
   const { 
@@ -19,7 +20,12 @@ export const AIAssistant = () => {
     trainingExamples,
     knowledgeDocs,
     addTrainingExample,
-    setActiveView
+    setActiveView,
+    agentMode,
+    fileTree,
+    updateFileContent,
+    createNewFile,
+    deleteFile
   } = useIDE();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +55,11 @@ export const AIAssistant = () => {
     setIsLoading(true);
 
     try {
+      const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
+        nodes.flatMap(node => node.type === 'folder'
+          ? flattenFiles(node.children || [])
+          : [{ path: node.path, content: node.content || '', language: node.language }]);
+      const workspace = flattenFiles(fileTree);
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,10 +68,12 @@ export const AIAssistant = () => {
           provider: llmConfig.provider,
           modelId: llmConfig.selectedModelId,
           keys: llmConfig.keys,
+          agentMode,
           skills: skills.filter(s => s.enabled),
           trainingProfile,
           trainingExamples: trainingExamples.filter(e => e.enabled),
-          knowledgeDocs: knowledgeDocs.filter(d => d.enabled)
+          knowledgeDocs: knowledgeDocs.filter(d => d.enabled),
+          workspace
         })
       });
 
@@ -69,9 +82,49 @@ export const AIAssistant = () => {
         throw new Error(data.error || 'Failed to generate response');
       }
 
+      const appliedActions: string[] = [];
+      const pendingCommands: string[] = [];
+      const normalizePath = (path: string) => path.replace(/^\.?[\\/]+/, '/').replace(/\\/g, '/');
+      const findFile = (path: string): { id: string; path: string } | undefined => {
+        const normalized = normalizePath(path);
+        const search = (nodes: typeof fileTree): { id: string; path: string } | undefined => {
+          for (const node of nodes) {
+            if (node.type === 'file' && normalizePath(node.path) === normalized) {
+              return { id: node.id, path: node.path };
+            }
+            const nested = node.children ? search(node.children) : undefined;
+            if (nested) return nested;
+          }
+          return undefined;
+        };
+        return search(fileTree);
+      };
+
+      for (const action of Array.isArray(data.actions) ? data.actions : []) {
+        const file = action.path ? findFile(action.path) : undefined;
+        if (action.type === 'edit_file' && file?.id) {
+          updateFileContent(file.id, String(action.content || ''));
+          appliedActions.push(`Updated ${file.path}`);
+        } else if (action.type === 'create_file' && action.path) {
+          const path = normalizePath(action.path);
+          const name = path.split('/').pop() || 'untitled.txt';
+          createNewFile(name, String(action.content || ''));
+          appliedActions.push(`Created ${path}`);
+        } else if (action.type === 'delete_file' && file?.id) {
+          deleteFile(file.id);
+          appliedActions.push(`Deleted ${file.path}`);
+        } else if (action.type === 'run_command' && action.command) {
+          pendingCommands.push(String(action.command));
+        }
+      }
+
+      const actionSummary = appliedActions.length || pendingCommands.length
+        ? `\n\n**Agent actions**\n${appliedActions.map(action => `- ${action}`).join('\n')}${pendingCommands.length ? `\n${pendingCommands.map(command => `- \`${command}\` (command execution requires confirmation in the terminal)`).join('\n')}` : ''}`
+        : '';
+
       addChatMessage({
         role: 'agent',
-        content: data.text,
+        content: `${data.text || 'Agent completed the request.'}${actionSummary}`,
         modelId: llmConfig.selectedModelId,
         modelName: selectedModel.name,
         provider: selectedModel.providerLabel
@@ -119,21 +172,14 @@ export const AIAssistant = () => {
 
   const activeSkillsCount = skills.filter(s => s.enabled).length;
 
-  const quickActions = [
-    { label: 'Generate API Route', prompt: 'Write an Express TypeScript API route with error handling and validation.', icon: Code },
-    { label: 'Refactor Architecture', prompt: 'Review this project architecture and propose clean separation of concerns.', icon: GitPullRequest },
-    { label: 'Debug & Analyze', prompt: 'Analyze potential runtime bottlenecks and propose optimizations.', icon: Terminal },
-    { label: 'Explain Code', prompt: 'Explain the codebase structure and how state is managed across components.', icon: Sparkles },
-  ];
-
   return (
     <div className="flex flex-col h-full bg-[#161B22] border-l border-[#30363D]">
-      {/* Top Header with Copilot Model Selector */}
+      {/* Top Header with DevPilotX Model Selector */}
       <div className="p-3 border-b border-[#30363D] flex items-center justify-between gap-2 bg-[#161B22] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2 h-2 rounded-full bg-[#2EA043] shrink-0 animate-pulse"></span>
           <span className="text-xs font-bold uppercase tracking-wider text-white truncate">
-            Copilot Chat
+            DevPilotX Chat
           </span>
           <button
             onClick={() => setActiveView('skills')}
@@ -147,6 +193,7 @@ export const AIAssistant = () => {
         
         {/* Model Selector Dropdown Pill */}
         <ModelSelectorDropdown variant="pill" />
+        <AgentModeSelector />
       </div>
       
       {/* Messages List */}
@@ -278,23 +325,8 @@ export const AIAssistant = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Prompts & Composer Area */}
+      {/* Composer Area */}
       <div className="p-3 bg-[#0D1117] border-t border-[#30363D] shrink-0">
-        {/* Quick action buttons */}
-        <div className="flex gap-1.5 mb-2.5 overflow-x-auto pb-1 scrollbar-none">
-          {quickActions.map((action, i) => (
-            <button
-              key={i}
-              onClick={() => handleSend(undefined, action.prompt)}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded bg-[#21262D] hover:bg-[#30363D] border border-[#30363D] text-[10px] text-[#C9D1D9] hover:text-white transition-colors disabled:opacity-50"
-            >
-              <action.icon size={11} className="text-[#58A6FF]" />
-              {action.label}
-            </button>
-          ))}
-        </div>
-
         {/* Input Form with Model Indicator */}
         <form onSubmit={(e) => handleSend(e)} className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5">
           <textarea
@@ -333,4 +365,3 @@ export const AIAssistant = () => {
     </div>
   );
 };
-

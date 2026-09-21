@@ -19,15 +19,8 @@ export const DebugPanel = () => {
   const { togglePanel, setActivePanel } = useIDE();
   const [isRunning, setIsRunning] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState('Node.js: Launch Dev Server');
-  const [breakpoints, setBreakpoints] = useState([
-    { id: 'bp-1', file: 'App.tsx', line: 42, enabled: true },
-    { id: 'bp-2', file: 'IDEContext.tsx', line: 120, enabled: true },
-    { id: 'bp-3', file: 'server.ts', line: 18, enabled: false }
-  ]);
-  const [watchExpressions, setWatchExpressions] = useState([
-    { id: 'w-1', expr: 'activeView', val: '"editor"' },
-    { id: 'w-2', expr: 'selectedModel.id', val: '"gemini-3.7-flash"' }
-  ]);
+  const [breakpoints, setBreakpoints] = useState<{ id: string; line: number; file?: string }[]>([]);
+  const [watchExpressions, setWatchExpressions] = useState<{ id: string; expression: string }[]>([]);
   const [newWatch, setNewWatch] = useState('');
   const [isAddingWatch, setIsAddingWatch] = useState(false);
 
