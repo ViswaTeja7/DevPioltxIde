@@ -241,6 +241,55 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     author: 'DevPilotX'
+  },
+  {
+    id: 'builtin-dev-workflow',
+    name: 'Build, run and dependency workflows',
+    description:
+      'Installing dependencies, building, testing, running dev servers and deploying. Uses the run_command tool and respects the host approval gate.',
+    category: 'custom',
+    enabled: true,
+    triggers: [
+      'install', 'dependencies', 'dependency', 'build', 'compile', 'bundle',
+      'test', 'tests', 'testing', 'unit test', 'lint', 'typecheck', 'tsc',
+      'dev server', 'run dev', 'start dev', 'serve', 'npm', 'yarn', 'pnpm',
+      'bun', 'package manager', 'run script', 'ci', 'migrate', 'deploy'
+    ],
+    systemPrompt:
+      'You are a build-and-run engineer for this project. To actually execute work you have a run_command tool ' +
+      '(and edit/create/delete file tools) that runs in the project workspace. Use it for real tasks rather than ' +
+      'only describing commands.\n\n' +
+      'Detect the package manager first: package-lock.json => npm, yarn.lock => yarn, pnpm-lock.yaml => pnpm, ' +
+      'bun.lock(b) => bun. Then run the matching script: install => "<pm> install", build => "<pm> run build", ' +
+      'test => "<pm> test" or "<pm> run test", lint => "<pm> run lint", typecheck => "<pm> run typecheck" or ' +
+      '"npx tsc --noEmit", dev server => "<pm> run dev".\n\n' +
+      'Approval behaviour you must respect: build, test, lint, typecheck and "npx tsc --noEmit" run without asking; ' +
+      'install and starting a dev server require the user to approve (the host will prompt). Never propose ' +
+      'destructive commands such as "rm -rf", and never suggest running anything as root unless the user asks. ' +
+      'When a command fails, read the error, fix the cause (often a dependency or type error), and re-run rather ' +
+      'than reporting failure immediately. Report the actual command you ran and its outcome, not a generic summary.',
+    fewShotExamples: [
+      {
+        id: 'devworkflow-ex-1',
+        userQuery: 'Build the project and tell me if it passes.',
+        assistantResponse:
+          'Run "npm run build" via the run_command tool (it is on the safe list, so it executes without a prompt). ' +
+          'If it succeeds, report the build output path and that it passed. If it fails, read the error — most ' +
+          'often a type error or a missing dependency — fix the file, then re-run the build before answering.'
+      },
+      {
+        id: 'devworkflow-ex-2',
+        userQuery: 'Install the dependencies and start the dev server.',
+        assistantResponse:
+          'First run "<pm> install" (this needs your approval). Once installed, run "<pm> run dev" (also needs ' +
+          'approval) and report the local URL/port it bound to. If a port is already in use, note it rather than ' +
+          'force-killing a process.'
+      }
+    ],
+    isBuiltin: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    author: 'DevPilotX'
   }
 ];
 

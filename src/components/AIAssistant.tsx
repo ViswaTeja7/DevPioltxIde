@@ -48,6 +48,7 @@ export const AIAssistant = () => {
     addTrainingExample,
     setActiveView,
     agentMode,
+    setAgentMode,
     fileTree,
     updateFileContent,
     createNewFile,
@@ -60,6 +61,23 @@ export const AIAssistant = () => {
   // Commands the agent proposed but the server refused to run without a human saying yes.
   const [approvals, setApprovals] = useState<Array<{ command: string; output?: string; running?: boolean }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // One-click shortcuts to the most common dev workflows. They prefill the composer and,
+  // if the user is only in plan/ask mode, switch to agent mode so the run_command tool
+  // actually executes rather than just describing the command.
+  const QUICK_ACTIONS = [
+    { label: 'Install', text: "Use the run_command tool to install this project's dependencies (detect npm/yarn/pnpm/bun from the lockfile) and report the result." },
+    { label: 'Build', text: "Use the run_command tool to build this project and report whether it passed, including any errors." },
+    { label: 'Test', text: "Use the run_command tool to run the project's test suite and report pass/fail." },
+    { label: 'Dev server', text: "Use the run_command tool to start the dev server and report the local URL/port it bound to." }
+  ];
+
+  const runQuickAction = (instruction: string) => {
+    if (agentMode === 'plan' || agentMode === 'ask') setAgentMode('agent');
+    setInput(instruction);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
   const runApproved = async (index: number) => {
     const entry = approvals[index];
@@ -473,7 +491,20 @@ export const AIAssistant = () => {
       <div className="p-3 bg-[#0D1117] border-t border-[#30363D] shrink-0">
         {/* Input Form with Model Indicator */}
         <form onSubmit={(e) => handleSend(e)} className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5">
+          <div className="flex flex-wrap gap-1.5 px-1.5 pt-1.5">
+            {QUICK_ACTIONS.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => runQuickAction(a.text)}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-[#21262D] border border-[#30363D] text-[#8B949E] hover:text-white hover:border-[#58A6FF] transition-colors"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
