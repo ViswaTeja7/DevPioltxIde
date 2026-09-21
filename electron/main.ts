@@ -194,7 +194,10 @@ function buildContentSecurityPolicy(): string {
     "default-src 'self'",
     isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // Task Studio renders generated images with <img src>, and the keyless image
+    // backend returns absolute pollinations.ai URLs, so that origin must be allowed
+    // for images. It is deliberately not allowed for scripts, styles or connections.
+    "img-src 'self' data: blob: https://image.pollinations.ai",
     "font-src 'self' data:",
     "media-src 'self' data:",
     "connect-src 'self' ws://127.0.0.1:* ws://localhost:*",
