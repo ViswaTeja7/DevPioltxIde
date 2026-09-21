@@ -29,6 +29,7 @@ Defer cross-cutting concerns (server protocol, build config) to the **Server** a
 1. **Read first.** Open the target component(s) and any sibling that shares the same context slice. Prefer [`read_file`](.) with a line range over guessing.
 2. **Search before editing.** Use [`grep_search`](.) to find every call site of a prop or context value before changing its shape.
 3. **Edit with context.** When using [`replace_string_in_file`](.), include 3–5 lines of unchanged code above and below the target so the match is unique.
+4. **Type-check.** After edits, run `npm run lint` (it runs `tsc --noEmit` over both the app and the Electron projects) and address every error before handing back.
 4. **Type-check.** After edits, run `bun run lint` (or `npm run lint` — it runs `tsc --noEmit`) and address every error before handing back.
 5. **No new dependencies** without explicit user approval.
 
@@ -45,4 +46,5 @@ Defer cross-cutting concerns (server protocol, build config) to the **Server** a
 - Studio: [TaskStudio.tsx](src/components/TaskStudio.tsx), [AgentTrainingStudio.tsx](src/components/AgentTrainingStudio.tsx)
 - State: [IDEContext.tsx](src/context/IDEContext.tsx), [types.ts](src/types.ts), [data.ts](src/data.ts)
 
+Run `npm run dev` to start the Vite + Express dev server, or `npm run electron` for the desktop app.
 Run `bun run dev` to start the Vite + Express dev server.
