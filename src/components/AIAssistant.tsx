@@ -6,6 +6,32 @@ import { ModelIcon } from './ModelIcon';
 import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
 import { AgentModeSelector } from './AgentModeSelector';
 
+// Self-learning used to require a human clicking "save to training", so almost nothing was
+// ever learned. These patterns spot the moments worth remembering on their own: the user
+// pushing back on an answer, and actions the agent attempted that failed.
+const CORRECTION_PATTERNS: RegExp[] = [
+  /\bno,?\s+(that|it|this|thats)\b/i,
+  /\bthat'?s?\s+(not|wrong|incorrect|broke)\b/i,
+  /\bwrong\b/i,
+  /\bincorrect\b/i,
+  /\bactually\b/i,
+  /\binstead\b/i,
+  /\bdon'?t\s+(do|use|that)\b/i,
+  /\brevert\b/i,
+  /\bundo\b/i,
+  /\bnot what i\b/i,
+  /\bstill\s+(broken|failing|not)\b/i,
+  /\bthat (failed|didn'?t work|did not work)\b/i,
+  /\btry again\b/i
+];
+
+function looksLikeCorrection(text: string): boolean {
+  const trimmed = text.trim();
+  // Long messages are new requests rather than pushback on the last answer.
+  if (trimmed.length > 400) return false;
+  return CORRECTION_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
 export const AIAssistant = () => {
   const { 
     chatHistory, 
@@ -63,6 +89,28 @@ export const AIAssistant = () => {
     scrollToBottom();
   }, [chatHistory, isLoading]);
 
+  // Auto-capture moments worth remembering without a human clicking "save to training":
+  // (1) the user pushing back on an answer, (2) an action the agent attempted that failed.
+  const captureSelfLearning = (entry: {
+    kind: 'correction' | 'failed-action';
+    userPrompt: string;
+    idealResponse: string;
+  }) => {
+    // Skip if we already learned this exact prompt, so the training set stays clean.
+    const duplicate = trainingExamples.some(
+      e => Array.isArray(e.tags) && e.tags.includes('auto-learned') && e.userPrompt === entry.userPrompt
+    );
+    if (duplicate) return;
+    addTrainingExample({
+      title: (entry.kind === 'correction' ? 'Correction: ' : 'Failed action: ') + entry.userPrompt.slice(0, 28),
+      category: 'Self-Learned',
+      userPrompt: entry.userPrompt,
+      idealResponse: entry.idealResponse,
+      tags: ['auto-learned', entry.kind],
+      enabled: true
+    });
+  };
+
   const handleSend = async (e?: React.FormEvent, customPrompt?: string) => {
     if (e) e.preventDefault();
     const promptToSend = customPrompt || input;
@@ -75,6 +123,23 @@ export const AIAssistant = () => {
     });
     setInput('');
     setIsLoading(true);
+
+    // If this message reads as pushback on the previous answer, quietly learn from it.
+    if (looksLikeCorrection(userMessage)) {
+      const preceding = [...chatHistory].reverse();
+      const lastAgent = preceding.find(
+        m => m.role === 'agent' && !m.content.startsWith('[Error]:') && !m.content.startsWith('⚠️')
+      );
+      const lastUser = preceding.find(m => m.role === 'user');
+      if (lastUser) {
+        const rejected = lastAgent ? `\n\n[Rejected prior answer]\n${lastAgent.content}` : '';
+        captureSelfLearning({
+          kind: 'correction',
+          userPrompt: lastUser.content,
+          idealResponse: `[User feedback] ${userMessage}${rejected}`
+        });
+      }
+    }
 
     try {
       const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
@@ -149,6 +214,14 @@ export const AIAssistant = () => {
           } else if (useAgentLoop) {
             // The loop executes commands itself and reports the outcome in `action.detail`.
             appliedActions.push(`Ran \`${action.command}\`${action.ok ? '' : ' (failed)'}`);
+            if (action.ok === false) {
+              // A command the agent tried that failed is worth remembering.
+              captureSelfLearning({
+                kind: 'failed-action',
+                userPrompt: `Command failed: ${action.command}`,
+                idealResponse: `Command \`${action.command}\` failed.${action.detail ? `\n${action.detail}` : ''}`
+              });
+            }
           } else {
             pendingCommands.push(String(action.command));
           }
