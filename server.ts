@@ -92,16 +92,87 @@ const WORKSPACE_TEXT_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".html", ".md", ".txt", ".yml", ".yaml", ".xml", ".svg"
 ]);
 
+// Workspace context budgets.
+//
+// These are deliberately far smaller than the original 120-file / 900 KB defaults,
+// which produced system prompts of roughly 950 KB (~240K tokens). That exceeded the
+// context window of most models (GPT-4o is 128K), so chat failed outright on anything
+// but very large-context models, and the whole repository was re-sent every turn.
+const WORKSPACE_INDEX_MAX_FILES = intFromEnv("DEVPILOTX_WORKSPACE_INDEX_FILES", 300);
+const WORKSPACE_INDEX_MAX_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_INDEX_BYTES", 4_000_000);
+const WORKSPACE_MAX_FILES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_FILES", 16);
+const WORKSPACE_MAX_TOTAL_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_BYTES", 120_000);
+const WORKSPACE_MAX_FILE_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_FILE_BYTES", 24_000);
+const WORKSPACE_INDEX_TTL_MS = intFromEnv("DEVPILOTX_WORKSPACE_TTL_MS", 30_000);
+
+// Small project-defining files that are worth including regardless of the question, so
+// the model still understands the stack when the query matches nothing in particular.
+const WORKSPACE_PRIORITY_FILES = [
+  "package.json", "tsconfig.json", "readme.md", "vite.config.ts", "vite.config.js",
+  "dockerfile", "docker-compose.yml", ".env.example", "requirements.txt", "go.mod", "cargo.toml"
+];
+
+const WORKSPACE_STOP_WORDS = new Set([
+  "the", "and", "for", "are", "but", "not", "you", "all", "can", "her", "was", "one", "our", "out",
+  "day", "get", "has", "him", "his", "how", "its", "new", "now", "old", "see", "two", "way", "who",
+  "did", "use", "why", "this", "that", "with", "from", "have", "they", "been", "were", "said", "each",
+  "which", "their", "will", "other", "about", "many", "then", "them", "these", "some", "what", "make",
+  "like", "into", "time", "very", "when", "come", "here", "just", "know", "take", "than", "well", "only",
+  "file", "files", "code", "please", "should", "would", "could", "does", "doing", "change", "changes",
+  "update", "using", "add", "fix", "need", "want", "help", "give", "show", "tell", "explain", "working",
+  "work", "thing", "things", "there", "where", "about", "same", "also", "much", "more", "most"
+]);
+
+function intFromEnv(name: string, fallback: number): number {
+  const raw = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+}
+
+function extractQueryTerms(query: string): string[] {
+  const terms = new Set<string>();
+  for (const raw of String(query || "").toLowerCase().split(/[^a-z0-9_$.\-/]+/)) {
+    const term = raw.replace(/^[-./]+|[-./]+$/g, "");
+    if (term.length < 3 || WORKSPACE_STOP_WORDS.has(term)) continue;
+    terms.add(term);
+    if (terms.size >= 24) break;
+  }
+  return [...terms];
+}
+
+function scoreWorkspaceFile(relativePath: string, content: string, terms: string[]): number {
+  if (terms.length === 0) return 0;
+  const haystackPath = relativePath.toLowerCase();
+  const haystackBody = content.toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (haystackPath.includes(term)) score += 15;
+    let from = 0;
+    let hits = 0;
+    while (hits < 25) {
+      const at = haystackBody.indexOf(term, from);
+      if (at === -1) break;
+      hits += 1;
+      from = at + term.length;
+    }
+    score += hits;
+  }
+  return score;
+}
+
 async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
   const files: Array<{ path: string; content: string }> = [];
-  const maxFiles = 120;
-  const maxTotalBytes = 900_000;
+  let totalBytes = 0;
 
   async function walk(directory: string): Promise<void> {
-    if (files.length >= maxFiles || files.reduce((sum, file) => sum + file.content.length, 0) >= maxTotalBytes) return;
-    const entries = await fs.readdir(directory, { withFileTypes: true });
+    if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
+    let entries;
+    try {
+      entries = await fs.readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
     for (const entry of entries) {
-      if (files.length >= maxFiles) return;
+      if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
       if (entry.isDirectory() && WORKSPACE_IGNORED_DIRECTORIES.has(entry.name)) continue;
       const absolutePath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
@@ -112,7 +183,9 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
       if (!WORKSPACE_TEXT_EXTENSIONS.has(extension) && entry.name !== "Dockerfile") continue;
       try {
         const content = await fs.readFile(absolutePath, "utf8");
-        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: content.slice(0, 120_000) });
+        const trimmed = content.slice(0, WORKSPACE_MAX_FILE_BYTES);
+        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: trimmed });
+        totalBytes += trimmed.length;
       } catch {
         // Ignore unreadable or concurrently removed files during discovery.
       }
@@ -123,22 +196,83 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
   return files;
 }
 
-async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
-  const discoveredWorkspace = await discoverWorkspace(WORKSPACE_ROOT);
-  const workspaceFiles = discoveredWorkspace.length > 0
-    ? discoveredWorkspace
-    : (Array.isArray(workspace) ? workspace : []);
-  if (workspaceFiles.length === 0) {
+// Cached because rebuilding the index re-reads the entire workspace, and it previously
+// ran on every single chat request.
+let workspaceIndexCache: { root: string; at: number; files: Array<{ path: string; content: string }> } | null = null;
+
+async function getWorkspaceIndex(root: string): Promise<Array<{ path: string; content: string }>> {
+  const now = Date.now();
+  if (
+    workspaceIndexCache &&
+    workspaceIndexCache.root === root &&
+    now - workspaceIndexCache.at < WORKSPACE_INDEX_TTL_MS
+  ) {
+    return workspaceIndexCache.files;
+  }
+  const files = await discoverWorkspace(root);
+  workspaceIndexCache = { root, at: now, files };
+  return files;
+}
+
+// Picks the files most relevant to the current question within a small byte budget,
+// instead of dumping the whole repository into every prompt.
+function selectWorkspaceFiles(
+  files: Array<{ path: string; content: string }>,
+  query: string
+): { selected: Array<{ path: string; content: string }>; considered: number } {
+  const terms = extractQueryTerms(query);
+  const scored = files.map(file => ({
+    file,
+    score: scoreWorkspaceFile(file.path, file.content, terms),
+    priority: WORKSPACE_PRIORITY_FILES.includes(path.basename(file.path).toLowerCase())
+  }));
+
+  scored.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority ? -1 : 1;
+    if (b.score !== a.score) return b.score - a.score;
+    return a.file.path.localeCompare(b.file.path);
+  });
+
+  const selected: Array<{ path: string; content: string }> = [];
+  let total = 0;
+  for (const entry of scored) {
+    if (selected.length >= WORKSPACE_MAX_FILES) break;
+    // Priority files always go in; beyond a small floor, only files that actually matched.
+    if (!entry.priority && entry.score === 0 && selected.length >= 4) continue;
+    const size = entry.file.content.length;
+    if (selected.length > 0 && total + size > WORKSPACE_MAX_TOTAL_BYTES) continue;
+    selected.push(entry.file);
+    total += size;
+  }
+  return { selected, considered: files.length };
+}
+
+async function getWorkspaceContext(
+  workspace: unknown,
+  query: string = ""
+): Promise<{ context: string; fileCount: number; considered: number }> {
+  const indexed = await getWorkspaceIndex(WORKSPACE_ROOT);
+  const available = indexed.length > 0 ? indexed : (Array.isArray(workspace) ? workspace : []);
+  if (available.length === 0) {
     console.warn(`[Workspace discovery] No readable source files found under ${WORKSPACE_ROOT}`);
     return {
       context: `\n[WORKSPACE ACCESS]\nThe server inspected ${WORKSPACE_ROOT} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
-      fileCount: 0
+      fileCount: 0,
+      considered: 0
     };
   }
-  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${WORKSPACE_ROOT}`);
+
+  const { selected, considered } = selectWorkspaceFiles(available, query);
+  const bytes = selected.reduce((sum, file) => sum + file.content.length, 0);
+  console.log(
+    `[Workspace discovery] Selected ${selected.length}/${considered} files (${bytes} bytes) from ${WORKSPACE_ROOT}`
+  );
+
+  const body = selected.map(file => `FILE: ${file.path}\n${String(file.content || "")}`).join("\n\n");
   return {
-    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${WORKSPACE_ROOT}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
-    fileCount: workspaceFiles.length
+    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server read ${considered} project files under ${WORKSPACE_ROOT} and selected the ${selected.length} most relevant to this request. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. If you need a file that is not listed, name the file you need rather than guessing at its contents.\n${body}\n`,
+    fileCount: selected.length,
+    considered
   };
 }
 
@@ -640,7 +774,14 @@ async function startServer() {
       const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const workspaceDiscovery = await getWorkspaceContext(workspace);
+      // Rank workspace files against what the user actually asked, so the prompt stays a
+      // bounded size instead of re-sending the entire repository on every turn.
+      const workspaceQuery = (Array.isArray(messages) ? messages : [])
+        .filter((m: any) => m && typeof m.content === "string" && m.content.trim() && m.role !== "agent")
+        .slice(-3)
+        .map((m: any) => m.content)
+        .join("\n");
+      const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
       const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
         agentModeInstruction(agentMode) +
         ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceDiscovery.context;
@@ -943,7 +1084,9 @@ async function startServer() {
         metadata: {
           skillsActiveCount: activeSkillsCount,
           trainingExamplesCount: activeExamplesCount,
-          workspaceFilesDiscovered: workspaceDiscovery.fileCount
+          workspaceFilesDiscovered: workspaceDiscovery.fileCount,
+          workspaceFilesConsidered: workspaceDiscovery.considered,
+          workspaceContextBytes: workspaceDiscovery.context.length
         }
       });
     } catch (error: any) {
@@ -1108,7 +1251,7 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
-      const workspaceDiscovery = await getWorkspaceContext(workspace);
+      const workspaceDiscovery = await getWorkspaceContext(workspace, String(query || ""));
 
       let report = "";
       let sources: { title: string; url: string; snippet?: string }[] = [];
