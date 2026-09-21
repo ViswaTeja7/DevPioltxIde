@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { createServer } from "http";
@@ -8,6 +7,14 @@ import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import os from "os";
 import fs from "fs/promises";
+import crypto from "crypto";
+
+const SERVER_HOST = (process.env.DEVPILOTX_HOST || "127.0.0.1").trim();
+const SERVER_PORT = Number.parseInt(process.env.DEVPILOTX_PORT || "3000", 10);
+const AUTH_TOKEN = (process.env.DEVPILOTX_AUTH_TOKEN || "").trim();
+const WORKSPACE_ROOT = (process.env.DEVPILOTX_WORKSPACE || process.cwd()).trim();
+const DIST_DIR = (process.env.DEVPILOTX_DIST_DIR || path.join(process.cwd(), "dist")).trim();
+const SESSION_COOKIE = "devpilotx_session";
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -117,20 +124,20 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
 }
 
 async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
-  const discoveredWorkspace = await discoverWorkspace(process.cwd());
+  const discoveredWorkspace = await discoverWorkspace(WORKSPACE_ROOT);
   const workspaceFiles = discoveredWorkspace.length > 0
     ? discoveredWorkspace
     : (Array.isArray(workspace) ? workspace : []);
   if (workspaceFiles.length === 0) {
-    console.warn(`[Workspace discovery] No readable source files found under ${process.cwd()}`);
+    console.warn(`[Workspace discovery] No readable source files found under ${WORKSPACE_ROOT}`);
     return {
-      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${process.cwd()} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
+      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${WORKSPACE_ROOT} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
       fileCount: 0
     };
   }
-  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${process.cwd()}`);
+  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${WORKSPACE_ROOT}`);
   return {
-    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${process.cwd()}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
+    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${WORKSPACE_ROOT}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
     fileCount: workspaceFiles.length
   };
 }
@@ -368,11 +375,93 @@ function buildEnhancedSystemPrompt(
   return prompt;
 }
 
+const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+function isLoopbackHost(hostHeader: string): boolean {
+  const raw = (hostHeader || "").trim();
+  if (!raw) return false;
+  let hostname = raw;
+  if (raw.startsWith("[")) {
+    const end = raw.indexOf("]");
+    hostname = end === -1 ? raw : raw.slice(0, end + 1);
+  } else {
+    hostname = raw.split(":")[0];
+  }
+  return LOOPBACK_HOSTNAMES.has(hostname.toLowerCase());
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function readSessionCookie(cookieHeader: string | undefined): string {
+  if (!cookieHeader) return "";
+  for (const part of cookieHeader.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() === SESSION_COOKIE) {
+      return decodeURIComponent(part.slice(idx + 1).trim());
+    }
+  }
+  return "";
+}
+
+function hasValidSession(cookieHeader: string | undefined): boolean {
+  if (!AUTH_TOKEN) return true;
+  return safeEqual(readSessionCookie(cookieHeader), AUTH_TOKEN);
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number.isFinite(SERVER_PORT) ? SERVER_PORT : 3000;
 
-  app.use(express.json());
+  app.disable("x-powered-by");
+
+  // Defence 1: reject non-loopback Host headers (DNS-rebinding protection).
+  app.use((req, res, next) => {
+    if (!isLoopbackHost(req.headers.host || "")) {
+      res.status(403).type("text/plain").send("Forbidden: invalid Host header.");
+      return;
+    }
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    next();
+  });
+
+  // Defence 2: exchange the one-time launch token for an HttpOnly session cookie.
+  // The renderer keeps using relative URLs, so it never has to know about the token.
+  app.get("/__auth", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!AUTH_TOKEN) {
+      res.redirect("/");
+      return;
+    }
+    const provided = typeof req.query.token === "string" ? req.query.token : "";
+    if (!safeEqual(provided, AUTH_TOKEN)) {
+      res.status(401).type("text/plain").send("Unauthorized");
+      return;
+    }
+    res.setHeader(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=${encodeURIComponent(AUTH_TOKEN)}; HttpOnly; SameSite=Strict; Path=/`
+    );
+    res.redirect("/");
+  });
+
+  // Defence 3: every other route, static asset and WebSocket requires a valid session.
+  app.use((req, res, next) => {
+    if (hasValidSession(req.headers.cookie)) {
+      next();
+      return;
+    }
+    res.status(401).json({ error: "Unauthorized. Start DevPilotX through the desktop app." });
+  });
+
+  app.use(express.json({ limit: "2mb" }));
 
   app.post("/api/provider-models", async (req, res) => {
     const { keys } = req.body || {};
@@ -1173,13 +1262,16 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   });
 
   if (process.env.NODE_ENV !== "production") {
+    // Loaded lazily so the Vite dev toolchain is never bundled into (or required by)
+    // the packaged desktop backend, which always runs in production mode.
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = DIST_DIR;
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
@@ -1192,6 +1284,20 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   httpServer.on("upgrade", (request, socket, head) => {
     const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
     if (requestUrl.pathname !== "/ws/terminal") {
+      socket.destroy();
+      return;
+    }
+
+    // The terminal bridge spawns a real shell, so it is authenticated exactly like the
+    // HTTP API and additionally rejects cross-origin upgrades.
+    if (!isLoopbackHost(request.headers.host || "") || !hasValidSession(request.headers.cookie)) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    const origin = request.headers.origin;
+    if (origin && origin !== `http://${request.headers.host}`) {
+      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
       socket.destroy();
       return;
     }
@@ -1209,7 +1315,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
 
     try {
       shellProcess = spawn(shell, shellArgs, {
-        cwd: process.cwd(),
+        cwd: WORKSPACE_ROOT,
         env: process.env,
         stdio: "pipe",
         windowsHide: true,
@@ -1255,8 +1361,18 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     });
   });
 
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  httpServer.listen(PORT, SERVER_HOST, () => {
+    const address = httpServer.address();
+    const actualPort = typeof address === "object" && address ? address.port : PORT;
+    console.log(`Server running on http://${SERVER_HOST}:${actualPort}`);
+    console.log(
+      `DEVPILOTX_READY ${JSON.stringify({
+        port: actualPort,
+        host: SERVER_HOST,
+        workspace: WORKSPACE_ROOT,
+        auth: AUTH_TOKEN ? "token" : "none"
+      })}`
+    );
   });
 }
 
