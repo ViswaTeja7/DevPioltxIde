@@ -4,6 +4,8 @@
   "private": true,
   "version": "0.1.0",
   "description": "DevPilotX — an AI-driven IDE that acts as a virtual full-stack developer.",
+  "author": "ViswaTeja7 <silverknight.viswateja@gmail.com>",
+  "license": "UNLICENSED",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
