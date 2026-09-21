@@ -7,6 +7,30 @@ import path from "path";
 const AUTH_TOKEN = crypto.randomBytes(32).toString("hex");
 const isDev = !app.isPackaged;
 
+// Compatibility escape hatches for constrained environments. Both default to OFF so that
+// normal desktop installs keep Chromium's sandbox and GPU acceleration enabled.
+// These must run before the app becomes ready.
+//
+// DEVPILOTX_DISABLE_GPU=1  — for VMs / remote desktop sessions with no usable GPU, where
+//                            Chromium's GPU process dies and takes the app with it
+//                            ("GPU process isn't usable. Goodbye."). Falls back to software GL.
+// DEVPILOTX_NO_SANDBOX=1   — for nested-virtualisation or locked-down images where the
+//                            Chromium sandbox cannot initialise. Weakens process isolation,
+//                            so only set it when the sandbox genuinely cannot start.
+const gpuDisabled =
+  process.argv.includes("--disable-gpu") || process.env.DEVPILOTX_DISABLE_GPU === "1";
+const sandboxUnavailable =
+  process.argv.includes("--no-sandbox") || process.env.DEVPILOTX_NO_SANDBOX === "1";
+
+if (gpuDisabled) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("use-gl", "swiftshader");
+  app.commandLine.appendSwitch("disable-software-rasterizer");
+}
+if (sandboxUnavailable) {
+  app.commandLine.appendSwitch("no-sandbox");
+}
+
 let backend: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 let backendOrigin = "";

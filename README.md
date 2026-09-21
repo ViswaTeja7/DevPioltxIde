@@ -78,6 +78,21 @@ only needed if you run the server standalone.
 | `DEVPILOTX_WORKSPACE` | `process.cwd()` | Root folder exposed to the agent and terminal. |
 | `DEVPILOTX_DIST_DIR` | `./dist` | Location of the built renderer. |
 
+### Constrained environments
+
+Both of these default to **off**, so normal desktop installs keep Chromium's sandbox and GPU
+acceleration. Only set them when the platform genuinely cannot provide them.
+
+| Variable | When to use it |
+|---|---|
+| `DEVPILOTX_DISABLE_GPU=1` | Virtual machines and remote desktop sessions with no usable GPU. Without it Chromium's GPU process dies and aborts the app with `GPU process isn't usable. Goodbye.` Falls back to software rendering (`use-gl=swiftshader`). |
+| `DEVPILOTX_NO_SANDBOX=1` | Nested virtualisation or locked-down images where the Chromium sandbox cannot initialise. **This weakens process isolation** — only use it if the app refuses to start otherwise, and prefer fixing the platform. |
+
+```bash
+# Example: launch on a GPU-less VM
+DEVPILOTX_DISABLE_GPU=1 npm run electron
+```
+
 ### Code signing
 
 Unsigned builds work locally but will show OS warnings to end users. For distribution, provide a
