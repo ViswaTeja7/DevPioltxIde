@@ -243,8 +243,10 @@ function installSessionHardening(): void {
     });
   });
 
+  // Only clipboard access is granted; the terminal needs both directions for
+  // Ctrl+Shift+C / Ctrl+Shift+V. Everything else is denied by default.
   session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
-    callback(permission === "clipboard-sanitized-write");
+    callback(permission === "clipboard-sanitized-write" || permission === "clipboard-read");
   });
 }
 

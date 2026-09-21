@@ -3,9 +3,8 @@ import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { createServer } from "http";
-import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import * as pty from "node-pty";
 import { WebSocketServer, WebSocket } from "ws";
-import os from "os";
 import fs from "fs/promises";
 import crypto from "crypto";
 
@@ -1452,16 +1451,26 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
 
   terminalServer.on("connection", (ws: WebSocket) => {
     const isWindows = process.platform === "win32";
-    const shell = isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash");
-    const shellArgs = isWindows ? [] : ["-i"];
-    let shellProcess: ChildProcessWithoutNullStreams;
 
+    // A real terminal needs a pseudo-terminal, not piped stdio. With pipes the shell runs in
+    // non-interactive batch mode, so you lose echo, prompts, tab completion, command history
+    // and colour. node-pty allocates a ConPTY on Windows and a pty elsewhere.
+    const shell = (process.env.DEVPILOTX_SHELL || "").trim()
+      || (isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash"));
+    const shellArgs = isWindows ? [] : ["-l"];
+
+    let term: pty.IPty;
     try {
-      shellProcess = spawn(shell, shellArgs, {
+      term = pty.spawn(shell, shellArgs, {
+        name: "xterm-256color",
+        cols: 120,
+        rows: 30,
         cwd: WORKSPACE_ROOT,
-        env: process.env,
-        stdio: "pipe",
-        windowsHide: true,
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          COLORTERM: "truecolor"
+        } as { [key: string]: string }
       });
     } catch (error: any) {
       ws.send(JSON.stringify({ type: "error", message: error?.message || "Unable to start shell." }));
@@ -1469,30 +1478,50 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
       return;
     }
 
+    let closed = false;
     const send = (type: string, data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type, data }));
       }
     };
 
-    send("ready", `DevPilotX terminal connected to ${shell}\r\n`);
-    shellProcess.stdout.on("data", data => send("output", data.toString()));
-    shellProcess.stderr.on("data", data => send("output", data.toString()));
-    shellProcess.on("error", error => send("error", error.message));
-    shellProcess.on("exit", (code, signal) => {
-      send("exit", `\r\n[process exited${code === null ? ` with ${signal}` : ` with code ${code}`}]\r\n`);
+    // Raw VT output (ANSI colour, cursor movement, window title) is forwarded untouched; the
+    // client's xterm.js instance is what interprets it.
+    term.onData(data => send("output", data));
+
+    term.onExit(({ exitCode, signal }) => {
+      if (closed) return;
+      closed = true;
+      send("exit", `\r\n[process exited${signal ? ` with signal ${signal}` : ` with code ${exitCode}`}]\r\n`);
       if (ws.readyState === WebSocket.OPEN) ws.close();
     });
 
     ws.on("message", raw => {
       try {
-        const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
-        if (message.type === "command" && typeof message.data === "string") {
-          shellProcess.stdin.write(`${message.data}${isWindows ? "\r\n" : os.EOL}`);
-        } else if (message.type === "input" && typeof message.data === "string") {
-          shellProcess.stdin.write(message.data);
+        const message = JSON.parse(raw.toString()) as {
+          type?: string;
+          data?: string;
+          cols?: number;
+          rows?: number;
+        };
+        if (message.type === "input" && typeof message.data === "string") {
+          term.write(message.data);
+        } else if (message.type === "command" && typeof message.data === "string") {
+          // Retained for compatibility with the older composer-style client.
+          term.write(`${message.data}\r`);
+        } else if (message.type === "resize") {
+          const cols = Math.floor(Number(message.cols) || 0);
+          const rows = Math.floor(Number(message.rows) || 0);
+          if (cols > 1 && rows > 1) {
+            try {
+              term.resize(Math.min(cols, 1000), Math.min(rows, 500));
+            } catch {
+              // The shell may have exited between the resize and this call.
+            }
+          }
         } else if (message.type === "interrupt") {
-          shellProcess.kill("SIGINT");
+          // Ctrl+C goes through the pty so the shell handles it, rather than us signalling.
+          term.write("\u0003");
         }
       } catch {
         send("error", "Invalid terminal message.");
@@ -1500,7 +1529,12 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     });
 
     ws.on("close", () => {
-      if (!shellProcess.killed) shellProcess.kill();
+      closed = true;
+      try {
+        term.kill();
+      } catch {
+        // Already exited.
+      }
     });
   });
 

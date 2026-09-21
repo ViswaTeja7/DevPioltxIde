@@ -9,6 +9,42 @@ A modern, high-density, AI-assisted development environment running natively in 
 - **Monaco Editor**: Industry-standard code editor with syntax highlighting, auto-completion, and minimap.
 - **Full-Stack Architecture**: React front-end powered by an Express backend for secure API management.
 
+## Integrated terminal
+
+The terminal panel is a real terminal, not a command box. It is built from
+[node-pty](https://github.com/microsoft/node-pty) on the server and
+[xterm.js](https://xtermjs.org/) in the renderer — the same pairing VS Code uses.
+
+**Why a PTY matters.** The earlier implementation piped `stdio` to the shell, which runs `cmd.exe` in
+non-interactive batch mode. That loses echo, prompts, tab completion, command history and colour. With
+a pseudo-terminal (ConPTY on Windows, a pty elsewhere) the shell behaves exactly as it does in Windows
+Terminal.
+
+| Capability | Detail |
+|---|---|
+| Full ANSI/VT rendering | 256-colour, truecolor (`COLORTERM=truecolor`), cursor movement, clear-screen, window title |
+| Inline typing | Type directly at the prompt; no separate input box |
+| Tabs | Each tab is an independent shell process. The `+` button opens another. |
+| Search | `Ctrl+Shift+F` over scrollback; `Enter` / `Shift+Enter` for next / previous |
+| Copy and paste | `Ctrl+Shift+C` / `Ctrl+Shift+V`, plus normal right-click paste |
+| Resize | The PTY is resized to match the panel, so full-screen programs lay out correctly |
+| Scrollback | 5000 lines |
+
+The shell defaults to `%ComSpec%` (`cmd.exe`) on Windows and `$SHELL` on Unix, and can be overridden
+with `DEVPILOTX_SHELL`. The shell starts in the workspace folder.
+
+### Native module note
+
+`node-pty` is a **native module**, which has three consequences:
+
+1. It is marked `--external` in the server bundle and shipped via `asarUnpack`, because a `.node`
+   binary cannot be loaded from inside an asar archive.
+2. `electron-builder` rebuilds it for Electron's ABI during packaging. It currently resolves from the
+   shipped prebuild without a local toolchain.
+3. Prebuilds are published for **win32 and darwin only**. On Linux, `npm install` falls back to
+   `node-gyp rebuild`, so a C++ toolchain is required to install locally. CI avoids this by running
+   `npm ci --ignore-scripts`, since it only lints and builds.
+
 ## Project Dashboard Capabilities
 
 - Visualizes repository complexity and file language distributions
