@@ -550,6 +550,31 @@ const COMMAND_DENY_PATTERNS: RegExp[] = [
   /\bshutdown\s+-/i
 ];
 
+// Commands are model-generated, so the default is to gate rather than trust: a small
+// allowlist of read-only and routine dev commands runs on its own, and anything else has to
+// be approved. Set DEVPILOTX_COMMAND_APPROVAL=off to disable gating entirely.
+const COMMAND_APPROVAL = (process.env.DEVPILOTX_COMMAND_APPROVAL || "on").trim().toLowerCase() !== "off";
+
+const COMMAND_SAFE_PATTERNS: RegExp[] = [
+  /^echo\b/i,
+  /^ls\b/i,
+  /^dir\b/i,
+  /^cat\b/i,
+  /^type\b/i,
+  /^pwd\b/i,
+  /^git\s+(status|log|diff|branch|show|rev-parse)\b/i,
+  /^npm\s+(test|run\s+(test|build|lint|typecheck))\b/i,
+  /^npx\s+tsc\s+--noEmit\b/i,
+  /^(node|npm|python)\s+(-v|--version)\b/i
+];
+
+function commandNeedsApproval(command: string): boolean {
+  if (!COMMAND_APPROVAL) return false;
+  const trimmed = command.trim();
+  if (!trimmed) return true;
+  return !COMMAND_SAFE_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
 async function runCommand(command: string): Promise<{ ok: boolean; output: string; refused?: string }> {
   const denied = COMMAND_DENY_PATTERNS.find(pattern => pattern.test(command));
   if (denied) {
@@ -574,7 +599,15 @@ async function runCommand(command: string): Promise<{ ok: boolean; output: strin
 // report is the loop's observation: without it the model is acting blind.
 async function executeAgentAction(
   action: any
-): Promise<{ type: string; target: string; ok: boolean; detail: string; linesAdded?: number; linesRemoved?: number }> {
+): Promise<{
+  type: string;
+  target: string;
+  ok: boolean;
+  detail: string;
+  linesAdded?: number;
+  linesRemoved?: number;
+  requiresApproval?: boolean;
+}> {
   if (action.type === "edit_file" || action.type === "create_file") {
     const resolved = resolveWorkspacePath(action.path);
     if (resolved.error) {
@@ -626,6 +659,15 @@ async function executeAgentAction(
 
   if (action.type === "run_command") {
     const command = String(action.command || "");
+    if (commandNeedsApproval(command)) {
+      return {
+        type: action.type,
+        target: command,
+        ok: false,
+        detail: "Needs your approval before it will run.",
+        requiresApproval: true
+      };
+    }
     const result = await runCommand(command);
     return {
       type: action.type,
@@ -1643,6 +1685,22 @@ async function startServer() {
       });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || "Failed to run the agent loop." });
+    }
+  });
+
+  // Runs a command the user explicitly approved. The agent loop refuses gated commands
+  // outright, so this is the only path by which they execute.
+  app.post("/api/agent/approve", async (req, res) => {
+    try {
+      const { command } = req.body || {};
+      if (typeof command !== "string" || !command.trim()) {
+        return res.status(400).json({ error: "A command is required." });
+      }
+      const result = await runCommand(command);
+      console.log(`[agent] approved command ran (ok=${result.ok}): ${command.slice(0, 120)}`);
+      res.json({ ok: result.ok, output: result.output, command });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || "Failed to run the approved command." });
     }
   });
 

@@ -31,7 +31,29 @@ export const AIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [savedTrainingId, setSavedTrainingId] = useState<string | null>(null);
+  // Commands the agent proposed but the server refused to run without a human saying yes.
+  const [approvals, setApprovals] = useState<Array<{ command: string; output?: string; running?: boolean }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const runApproved = async (index: number) => {
+    const entry = approvals[index];
+    if (!entry || entry.running) return;
+    setApprovals(prev => prev.map((a, i) => (i === index ? { ...a, running: true } : a)));
+    try {
+      const response = await fetch('/api/agent/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: entry.command })
+      });
+      const data = await response.json();
+      const output = data?.ok ? (data.output || '(no output)') : (data?.error || data?.output || 'Command failed.');
+      setApprovals(prev => prev.map((a, i) => (i === index ? { ...a, output, running: false } : a)));
+    } catch (error: any) {
+      setApprovals(prev =>
+        prev.map((a, i) => (i === index ? { ...a, output: error?.message || 'Failed to run.', running: false } : a))
+      );
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -118,8 +140,14 @@ export const AIAssistant = () => {
           deleteFile(file.id, !useAgentLoop);
           appliedActions.push(`Deleted ${file.path}`);
         } else if (action.type === 'run_command' && action.command) {
-          // The loop executes commands itself and reports the outcome in `action.detail`.
-          if (useAgentLoop) {
+          if (action.requiresApproval) {
+            setApprovals(prev =>
+              prev.some(a => a.command === action.command)
+                ? prev
+                : [...prev, { command: String(action.command) }]
+            );
+          } else if (useAgentLoop) {
+            // The loop executes commands itself and reports the outcome in `action.detail`.
             appliedActions.push(`Ran \`${action.command}\`${action.ok ? '' : ' (failed)'}`);
           } else {
             pendingCommands.push(String(action.command));
@@ -333,6 +361,40 @@ export const AIAssistant = () => {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {approvals.length > 0 && (
+        <div className="px-3 pt-2 pb-1 bg-[#0D1117] border-t border-[#30363D] shrink-0">
+          <p className="text-[11px] uppercase tracking-wide text-[#8B949E] mb-2">
+            Needs your approval
+          </p>
+          <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+            {approvals.map((entry, index) => (
+              <div
+                key={`${entry.command}-${index}`}
+                className="rounded-md border border-[#30363D] bg-[#161B22] p-2"
+              >
+                <code className="block text-[12px] text-[#E6EDF3] break-all font-mono">
+                  {entry.command}
+                </code>
+                {entry.output === undefined ? (
+                  <button
+                    type="button"
+                    onClick={() => runApproved(index)}
+                    disabled={entry.running}
+                    className="mt-2 text-[12px] px-2.5 py-1 rounded border border-[#30363D] text-[#E6EDF3] hover:border-[#58A6FF] disabled:opacity-60"
+                  >
+                    {entry.running ? 'Running...' : 'Run command'}
+                  </button>
+                ) : (
+                  <pre className="mt-2 text-[11px] text-[#8B949E] whitespace-pre-wrap break-all font-mono max-h-32 overflow-y-auto">
+                    {entry.output}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Composer Area */}
       <div className="p-3 bg-[#0D1117] border-t border-[#30363D] shrink-0">
