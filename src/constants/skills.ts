@@ -14,7 +14,7 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'devops',
     enabled: true,
     triggers: [
-      'ci', 'cd', 'pipeline', 'github actions', 'workflow', 'deploy', 'deployment',
+      'ci pipeline', 'continuous integration', 'cd', 'pipeline', 'github actions', 'workflow', 'deploy', 'deployment',
       'docker', 'dockerfile', 'container', 'kubernetes', 'k8s', 'helm', 'terraform',
       'ansible', 'build server', 'release'
     ],
@@ -253,7 +253,7 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
       'install', 'dependencies', 'dependency', 'build', 'compile', 'bundle',
       'test', 'tests', 'testing', 'unit test', 'lint', 'typecheck', 'tsc',
       'dev server', 'run dev', 'start dev', 'serve', 'npm', 'yarn', 'pnpm',
-      'bun', 'package manager', 'run script', 'ci', 'migrate', 'deploy'
+      'bun', 'package manager', 'run script', 'migrate', 'deploy'
     ],
     systemPrompt:
       'You are a build-and-run engineer for this project. To actually execute work you have a run_command tool ' +
