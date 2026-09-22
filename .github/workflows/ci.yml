@@ -9,17 +9,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          # electron 44 requires Node >= 22.12.0, so Node 18 cannot build this project.
-          node-version: '22.x'
+          node-version: '18.x'
           
       - name: Install Dependencies
-        # --ignore-scripts because CI only lints and builds, and never runs the app:
-        #   * skips electron's ~200 MB binary download
-        #   * skips node-pty's native build. node-pty ships prebuilds for win32 and darwin
-        #     only, so on Linux its install script falls back to `node-gyp rebuild` and
-        #     needs a full C++ toolchain. Neither binary is needed here: esbuild marks
-        #     node-pty external, and its typings still ship inside the package.
-        run: npm ci --ignore-scripts
+        run: npm ci
         
       - name: Lint and Build
         run: |
