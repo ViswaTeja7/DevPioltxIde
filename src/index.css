@@ -9,3 +9,55 @@
     scrollbar-width: none;
   }
 }
+
+/* Accessibility baseline -------------------------------------------------------- */
+
+/* Visible keyboard focus everywhere. Pointer users are unaffected (focus-visible), so
+   the IDE look is preserved while keyboard navigation stays discoverable. */
+:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+}
+
+/* Screen-reader-only text for icon-only controls. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip link: hidden until focused, then pinned to the top-left. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+  padding: 6px 12px;
+  background: #1f6feb;
+  color: #ffffff;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Honour the OS "reduce motion" setting for users who opt out of animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

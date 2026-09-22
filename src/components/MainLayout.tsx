@@ -8,6 +8,7 @@ import { TaskStudio } from './TaskStudio';
 import { AgentTrainingStudio } from './AgentTrainingStudio';
 import { PanelArea } from './PanelArea';
 import { StatusBar } from './StatusBar';
+import { ErrorToast } from './ErrorToast';
 import { ModelSelectorModal } from './ModelSelectorModal';
 import { useIDE } from '../context/IDEContext';
 
@@ -16,23 +17,29 @@ export const MainLayout = () => {
     activeActivity,
     lastActiveActivity,
     toggleSidebar,
+    togglePanel,
     isPanelOpen,
     activeView,
     isModelSelectorOpen,
     setIsModelSelectorOpen,
   } = useIDE();
 
-  // Global Ctrl+B shortcut to toggle sidebar
+  // Global shortcuts: Ctrl+B toggles the sidebar, Ctrl+` toggles the bottom panel
+  // (VS Code convention).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === 'b' || e.key === 'B') {
         e.preventDefault();
         toggleSidebar();
+      } else if (e.code === 'Backquote' && !e.shiftKey) {
+        e.preventDefault();
+        togglePanel('terminal');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar]);
+  }, [toggleSidebar, togglePanel]);
 
   const currentTab = activeActivity || lastActiveActivity || 'explorer';
   const isWideTab =
@@ -44,6 +51,9 @@ export const MainLayout = () => {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#0D1117] text-[#C9D1D9] font-sans overflow-hidden">
+      <a href="#ide-main-content" className="skip-link">
+        Skip to editor
+      </a>
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <ActivityBar />
@@ -61,7 +71,7 @@ export const MainLayout = () => {
             <Sidebar />
           </div>
         </div>
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex flex-col flex-1 min-w-0" id="ide-main-content" tabIndex={-1}>
           {activeView === 'dashboard' ? (
             <Dashboard />
           ) : activeView === 'studio' ? (
@@ -79,6 +89,7 @@ export const MainLayout = () => {
         isOpen={isModelSelectorOpen}
         onClose={() => setIsModelSelectorOpen(false)}
       />
+      <ErrorToast />
     </div>
   );
 };

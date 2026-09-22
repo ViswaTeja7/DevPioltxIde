@@ -1,5 +1,5 @@
 import React from 'react';
-import { Files, Search, GitBranch, Bug, Blocks, Sparkles, Settings, User, Wand2, BrainCircuit } from 'lucide-react';
+import { Files, Search, GitBranch, Bug, Blocks, Sparkles, Settings, Wand2, BrainCircuit } from 'lucide-react';
 import { useIDE } from '../context/IDEContext';
 import { ActivityTab } from '../types';
 
@@ -31,8 +31,11 @@ export const ActivityBar = () => {
   };
 
   return (
-    <div className="w-12 bg-[#0D1117] border-r border-[#30363D] flex flex-col items-center justify-between py-2 shrink-0 select-none">
-      <div className="flex flex-col gap-3 w-full">
+    <nav
+      className="w-12 bg-[#0D1117] border-r border-[#30363D] flex flex-col items-center justify-between py-2 shrink-0 select-none"
+      aria-label="Primary"
+    >
+      <div className="flex flex-col gap-3 w-full" role="toolbar" aria-orientation="vertical" aria-label="Views">
         {activities.map((act) => {
           const isActive = activeActivity === act.id;
           return (
@@ -40,16 +43,19 @@ export const ActivityBar = () => {
               key={act.id}
               onClick={() => handleActivitySelect(act.id as ActivityTab)}
               title={act.title}
+              aria-label={act.title}
+              aria-pressed={isActive}
               className={`w-full flex justify-center py-2 relative transition-colors ${
                 isActive ? 'text-white' : 'text-[#8B949E] hover:text-white'
               }`}
             >
               {isActive && (
-                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F78166]" />
+                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F78166]" aria-hidden="true" />
               )}
               <act.icon
                 size={22}
                 strokeWidth={1.75}
+                aria-hidden="true"
                 className={
                   act.id === 'ai' && isActive
                     ? 'text-[#58A6FF]'
@@ -65,24 +71,18 @@ export const ActivityBar = () => {
         })}
       </div>
       <div className="flex flex-col gap-3 w-full">
-        <button 
-          onClick={() => handleActivitySelect('settings')}
-          title="Account Profile" 
-          className="w-full flex justify-center py-2 text-[#8B949E] hover:text-white transition-colors"
-        >
-          <User size={22} strokeWidth={1.75} />
-        </button>
-        <button 
+        <button
           onClick={() => handleActivitySelect('settings')}
           title="Settings (Ctrl+,)"
+          aria-label="Settings"
           className={`w-full flex justify-center py-2 relative transition-colors ${activeActivity === 'settings' ? 'text-white' : 'text-[#8B949E] hover:text-white'}`}
         >
           {activeActivity === 'settings' && (
-            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F78166]" />
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F78166]" aria-hidden="true" />
           )}
-          <Settings size={22} strokeWidth={1.75} />
+          <Settings size={22} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
-    </div>
+    </nav>
   );
 };

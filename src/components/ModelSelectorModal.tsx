@@ -147,11 +147,32 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
         {/* Model Grid */}
         <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-2 gap-3.5 bg-[#0D1117]/40">
           {filteredModels.length === 0 ? (
-            <div className="col-span-2 py-12 text-center text-[#8B949E]">
-              <Layers size={32} className="mx-auto mb-2 opacity-40 text-[#58A6FF]" />
-              <p className="text-sm font-semibold text-white">No models matching "{searchQuery}"</p>
-              <p className="text-xs text-[#8B949E] mt-1">Try searching for "NVIDIA", "MiniMax", "Free", or "Flash"</p>
-            </div>
+            availableModels.length === 0 ? (
+              // Nothing linked: no models are offered until an API is configured.
+              <div className="col-span-2 py-12 text-center">
+                <Key size={32} className="mx-auto mb-2 text-[#E3B341]" />
+                <p className="text-sm font-semibold text-white">No AI providers are linked yet</p>
+                <p className="text-xs text-[#8B949E] mt-1 mb-4">
+                  Add an API key in Settings to unlock models for the assistant.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    setActiveActivity('settings');
+                  }}
+                  className="text-xs px-4 py-2 rounded bg-[#1F6FEB] hover:bg-[#388BFD] text-white font-medium transition-colors"
+                >
+                  Open API Settings
+                </button>
+              </div>
+            ) : (
+              <div className="col-span-2 py-12 text-center text-[#8B949E]">
+                <Layers size={32} className="mx-auto mb-2 opacity-40 text-[#58A6FF]" />
+                <p className="text-sm font-semibold text-white">No models matching &quot;{searchQuery}&quot;</p>
+                <p className="text-xs text-[#8B949E] mt-1">Try searching for &quot;Free&quot;, &quot;Coder&quot;, or &quot;Flash&quot;</p>
+              </div>
+            )
           ) : (
             filteredModels.map((model) => {
               const isSelected = model.id === currentModel.id;

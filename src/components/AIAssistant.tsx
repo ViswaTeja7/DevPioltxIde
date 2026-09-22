@@ -6,6 +6,32 @@ import { ModelIcon } from './ModelIcon';
 import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
 import { AgentModeSelector } from './AgentModeSelector';
 
+// Self-learning used to require a human clicking "save to training", so almost nothing was
+// ever learned. These patterns spot the moments worth remembering on their own: the user
+// pushing back on an answer, and actions the agent attempted that failed.
+const CORRECTION_PATTERNS: RegExp[] = [
+  /\bno,?\s+(that|it|this|thats)\b/i,
+  /\bthat'?s?\s+(not|wrong|incorrect|broke)\b/i,
+  /\bwrong\b/i,
+  /\bincorrect\b/i,
+  /\bactually\b/i,
+  /\binstead\b/i,
+  /\bdon'?t\s+(do|use|that)\b/i,
+  /\brevert\b/i,
+  /\bundo\b/i,
+  /\bnot what i\b/i,
+  /\bstill\s+(broken|failing|not)\b/i,
+  /\bthat (failed|didn'?t work|did not work)\b/i,
+  /\btry again\b/i
+];
+
+function looksLikeCorrection(text: string): boolean {
+  const trimmed = text.trim();
+  // Long messages are new requests rather than pushback on the last answer.
+  if (trimmed.length > 400) return false;
+  return CORRECTION_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
 export const AIAssistant = () => {
   const { 
     chatHistory, 
@@ -22,6 +48,7 @@ export const AIAssistant = () => {
     addTrainingExample,
     setActiveView,
     agentMode,
+    setAgentMode,
     fileTree,
     updateFileContent,
     createNewFile,
@@ -31,7 +58,46 @@ export const AIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [savedTrainingId, setSavedTrainingId] = useState<string | null>(null);
+  // Commands the agent proposed but the server refused to run without a human saying yes.
+  const [approvals, setApprovals] = useState<Array<{ command: string; output?: string; running?: boolean }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // One-click shortcuts to the most common dev workflows. They prefill the composer and,
+  // if the user is only in plan/ask mode, switch to agent mode so the run_command tool
+  // actually executes rather than just describing the command.
+  const QUICK_ACTIONS = [
+    { label: 'Install', text: "Use the run_command tool to install this project's dependencies (detect npm/yarn/pnpm/bun from the lockfile) and report the result." },
+    { label: 'Build', text: "Use the run_command tool to build this project and report whether it passed, including any errors." },
+    { label: 'Test', text: "Use the run_command tool to run the project's test suite and report pass/fail." },
+    { label: 'Dev server', text: "Use the run_command tool to start the dev server and report the local URL/port it bound to." }
+  ];
+
+  const runQuickAction = (instruction: string) => {
+    if (agentMode === 'plan' || agentMode === 'ask') setAgentMode('agent');
+    setInput(instruction);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const runApproved = async (index: number) => {
+    const entry = approvals[index];
+    if (!entry || entry.running) return;
+    setApprovals(prev => prev.map((a, i) => (i === index ? { ...a, running: true } : a)));
+    try {
+      const response = await fetch('/api/agent/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: entry.command })
+      });
+      const data = await response.json();
+      const output = data?.ok ? (data.output || '(no output)') : (data?.error || data?.output || 'Command failed.');
+      setApprovals(prev => prev.map((a, i) => (i === index ? { ...a, output, running: false } : a)));
+    } catch (error: any) {
+      setApprovals(prev =>
+        prev.map((a, i) => (i === index ? { ...a, output: error?.message || 'Failed to run.', running: false } : a))
+      );
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,6 +106,28 @@ export const AIAssistant = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chatHistory, isLoading]);
+
+  // Auto-capture moments worth remembering without a human clicking "save to training":
+  // (1) the user pushing back on an answer, (2) an action the agent attempted that failed.
+  const captureSelfLearning = (entry: {
+    kind: 'correction' | 'failed-action';
+    userPrompt: string;
+    idealResponse: string;
+  }) => {
+    // Skip if we already learned this exact prompt, so the training set stays clean.
+    const duplicate = trainingExamples.some(
+      e => Array.isArray(e.tags) && e.tags.includes('auto-learned') && e.userPrompt === entry.userPrompt
+    );
+    if (duplicate) return;
+    addTrainingExample({
+      title: (entry.kind === 'correction' ? 'Correction: ' : 'Failed action: ') + entry.userPrompt.slice(0, 28),
+      category: 'Self-Learned',
+      userPrompt: entry.userPrompt,
+      idealResponse: entry.idealResponse,
+      tags: ['auto-learned', entry.kind],
+      enabled: true
+    });
+  };
 
   const handleSend = async (e?: React.FormEvent, customPrompt?: string) => {
     if (e) e.preventDefault();
@@ -54,13 +142,33 @@ export const AIAssistant = () => {
     setInput('');
     setIsLoading(true);
 
+    // If this message reads as pushback on the previous answer, quietly learn from it.
+    if (looksLikeCorrection(userMessage)) {
+      const preceding = [...chatHistory].reverse();
+      const lastAgent = preceding.find(
+        m => m.role === 'agent' && !m.content.startsWith('[Error]:') && !m.content.startsWith('⚠️')
+      );
+      const lastUser = preceding.find(m => m.role === 'user');
+      if (lastUser) {
+        const rejected = lastAgent ? `\n\n[Rejected prior answer]\n${lastAgent.content}` : '';
+        captureSelfLearning({
+          kind: 'correction',
+          userPrompt: lastUser.content,
+          idealResponse: `[User feedback] ${userMessage}${rejected}`
+        });
+      }
+    }
+
     try {
       const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
         nodes.flatMap(node => node.type === 'folder'
           ? flattenFiles(node.children || [])
           : [{ path: node.path, content: node.content || '', language: node.language }]);
       const workspace = flattenFiles(fileTree);
-      const response = await fetch('/api/chat', {
+      // In agent and autonomous modes the server runs a real loop, executing each action
+      // and feeding results back. Elsewhere a single turn is all that is wanted.
+      const useAgentLoop = agentMode === 'agent' || agentMode === 'autonomous';
+      const response = await fetch(useAgentLoop ? '/api/agent' : '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -111,10 +219,30 @@ export const AIAssistant = () => {
           createNewFile(name, String(action.content || ''));
           appliedActions.push(`Created ${path}`);
         } else if (action.type === 'delete_file' && file?.id) {
-          deleteFile(file.id);
+          // The loop already deleted it on disk, so only mirror the change locally.
+          deleteFile(file.id, !useAgentLoop);
           appliedActions.push(`Deleted ${file.path}`);
         } else if (action.type === 'run_command' && action.command) {
-          pendingCommands.push(String(action.command));
+          if (action.requiresApproval) {
+            setApprovals(prev =>
+              prev.some(a => a.command === action.command)
+                ? prev
+                : [...prev, { command: String(action.command) }]
+            );
+          } else if (useAgentLoop) {
+            // The loop executes commands itself and reports the outcome in `action.detail`.
+            appliedActions.push(`Ran \`${action.command}\`${action.ok ? '' : ' (failed)'}`);
+            if (action.ok === false) {
+              // A command the agent tried that failed is worth remembering.
+              captureSelfLearning({
+                kind: 'failed-action',
+                userPrompt: `Command failed: ${action.command}`,
+                idealResponse: `Command \`${action.command}\` failed.${action.detail ? `\n${action.detail}` : ''}`
+              });
+            }
+          } else {
+            pendingCommands.push(String(action.command));
+          }
         }
       }
 
@@ -325,11 +453,58 @@ export const AIAssistant = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {approvals.length > 0 && (
+        <div className="px-3 pt-2 pb-1 bg-[#0D1117] border-t border-[#30363D] shrink-0">
+          <p className="text-[11px] uppercase tracking-wide text-[#8B949E] mb-2">
+            Needs your approval
+          </p>
+          <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+            {approvals.map((entry, index) => (
+              <div
+                key={`${entry.command}-${index}`}
+                className="rounded-md border border-[#30363D] bg-[#161B22] p-2"
+              >
+                <code className="block text-[12px] text-[#E6EDF3] break-all font-mono">
+                  {entry.command}
+                </code>
+                {entry.output === undefined ? (
+                  <button
+                    type="button"
+                    onClick={() => runApproved(index)}
+                    disabled={entry.running}
+                    className="mt-2 text-[12px] px-2.5 py-1 rounded border border-[#30363D] text-[#E6EDF3] hover:border-[#58A6FF] disabled:opacity-60"
+                  >
+                    {entry.running ? 'Running...' : 'Run command'}
+                  </button>
+                ) : (
+                  <pre className="mt-2 text-[11px] text-[#8B949E] whitespace-pre-wrap break-all font-mono max-h-32 overflow-y-auto">
+                    {entry.output}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Composer Area */}
       <div className="p-3 bg-[#0D1117] border-t border-[#30363D] shrink-0">
         {/* Input Form with Model Indicator */}
         <form onSubmit={(e) => handleSend(e)} className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5">
+          <div className="flex flex-wrap gap-1.5 px-1.5 pt-1.5">
+            {QUICK_ACTIONS.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => runQuickAction(a.text)}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-[#21262D] border border-[#30363D] text-[#8B949E] hover:text-white hover:border-[#58A6FF] transition-colors"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

@@ -198,9 +198,27 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
           {/* Model List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-3">
             {filteredModels.length === 0 ? (
-              <div className="p-6 text-center text-[#8B949E] text-xs">
-                No matching models found for "{searchQuery}".
-              </div>
+              availableModels.length === 0 ? (
+                // Nothing is linked: the catalogue intentionally stays empty rather than
+                // offering models whose API has no credentials behind them.
+                <div className="p-6 text-center flex flex-col items-center gap-2.5">
+                  <Key size={20} className="text-[#E3B341]" />
+                  <span className="text-xs text-[#8B949E]">
+                    No AI providers are linked yet. Add an API key to unlock models.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleGoToSettings}
+                    className="text-[11px] px-3 py-1.5 rounded bg-[#1F6FEB] hover:bg-[#388BFD] text-white font-medium transition-colors"
+                  >
+                    Open API Settings
+                  </button>
+                </div>
+              ) : (
+                <div className="p-6 text-center text-[#8B949E] text-xs">
+                  No matching models found for &quot;{searchQuery}&quot;.
+                </div>
+              )
             ) : (
               <>
                 {/* DevPilotX Recommended Section */}
@@ -248,7 +266,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
           <div className="p-2.5 border-t border-[#30363D] bg-[#0D1117] flex items-center justify-between text-[11px] text-[#8B949E]">
             <div className="flex items-center gap-1.5 text-[#8B949E]">
               <Info size={12} className="text-[#3FB950]" />
-              <span>Built-in & Free-tier models ready</span>
+              <span>Showing only models linked to a configured API</span>
             </div>
             <button
               type="button"

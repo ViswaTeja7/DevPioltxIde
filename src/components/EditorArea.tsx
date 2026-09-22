@@ -3,6 +3,7 @@ import { useIDE } from '../context/IDEContext';
 import { X, FileCode, FileJson, File, FileText, FolderOpen } from 'lucide-react';
 import Editor, { useMonaco } from '@monaco-editor/react';
 import { FileNode } from '../types';
+import { getLanguageFromName } from '../lib/language';
 
 export const EditorArea = () => {
   const { openFiles, activeFileId, setActiveFileId, closeFile, updateFileContent, createNewFile, addFolderToTree } = useIDE();
@@ -10,15 +11,6 @@ export const EditorArea = () => {
   const handleNewFile = useCallback(() => {
     createNewFile();
   }, [createNewFile]);
-
-  const getLanguageFromName = (name: string) => {
-    if (name.endsWith('.tsx') || name.endsWith('.ts')) return 'typescript';
-    if (name.endsWith('.json')) return 'json';
-    if (name.endsWith('.md')) return 'markdown';
-    if (name.endsWith('.html') || name.endsWith('.svg')) return 'html';
-    if (name.endsWith('.css')) return 'css';
-    return 'javascript';
-  };
 
   const buildFileTree = async (dirHandle: FileSystemDirectoryHandle, basePath: string = ''): Promise<FileNode> => {
     const children: FileNode[] = [];

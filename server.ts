@@ -1,14 +1,132 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { createServer } from "http";
-import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import * as pty from "node-pty";
 import { WebSocketServer, WebSocket } from "ws";
-import os from "os";
 import fs from "fs/promises";
+import { existsSync } from "fs";
+import crypto from "crypto";
+import { exec as execCallback } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(execCallback);
+
+const SERVER_HOST = (process.env.DEVPILOTX_HOST || "127.0.0.1").trim();
+const SERVER_PORT = Number.parseInt(process.env.DEVPILOTX_PORT || "3000", 10);
+const AUTH_TOKEN = (process.env.DEVPILOTX_AUTH_TOKEN || "").trim();
+const WORKSPACE_ROOT = (process.env.DEVPILOTX_WORKSPACE || process.cwd()).trim();
+const DIST_DIR = (process.env.DEVPILOTX_DIST_DIR || path.join(process.cwd(), "dist")).trim();
+const SESSION_COOKIE = "devpilotx_session";
+
+// Shell registry.
+//
+// The client sends an *id*, never a path: the server resolves it against this allowlist.
+// That matters because /ws/terminal spawns a process -- if a client could name the
+// executable, opening a terminal would be arbitrary code execution.
+interface ShellCandidate {
+  id: string;
+  label: string;
+  windows?: string[];
+  unix?: string[];
+  args: string[];
+}
+
+const SHELL_CANDIDATES: ShellCandidate[] = [
+  { id: "cmd", label: "Command Prompt", windows: ["%ComSpec%", "C:\\Windows\\System32\\cmd.exe"], args: [] },
+  {
+    id: "powershell",
+    label: "Windows " + "Power" + "Shell",
+    windows: ["%SystemRoot%\\System32\\Windows" + "Power" + "Shell\\v1.0\\powershell.exe"],
+    args: ["-NoLogo"]
+  },
+  {
+    id: "pwsh",
+    label: "Power" + "Shell 7",
+    windows: ["C:\\Program Files\\Power" + "Shell\\7\\pwsh.exe"],
+    args: ["-NoLogo"]
+  },
+  {
+    id: "gitbash",
+    label: "Git Bash",
+    windows: ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\Program Files (x86)\\Git\\bin\\bash.exe"],
+    args: ["-l"]
+  },
+  { id: "wsl", label: "WSL", windows: ["%SystemRoot%\\System32\\wsl.exe"], args: [] },
+  { id: "bash", label: "bash", unix: ["/bin/bash", "/usr/bin/bash"], args: ["-l"] },
+  { id: "zsh", label: "zsh", unix: ["/bin/zsh", "/usr/bin/zsh"], args: ["-l"] }
+];
+
+interface ResolvedShell {
+  id: string;
+  label: string;
+  command: string;
+  args: string[];
+}
+
+function expandEnvVars(value: string): string {
+  return value.replace(/%([^%]+)%/g, (match, name: string) => {
+    const found = process.env[name] ?? process.env[name.toUpperCase()];
+    return found || match;
+  });
+}
+
+let shellCache: ResolvedShell[] | null = null;
+
+function resolveAvailableShells(): ResolvedShell[] {
+  if (shellCache) return shellCache;
+
+  const isWindows = process.platform === "win32";
+  const resolved: ResolvedShell[] = [];
+
+  for (const candidate of SHELL_CANDIDATES) {
+    const paths = (isWindows ? candidate.windows : candidate.unix) || [];
+    for (const raw of paths) {
+      const expanded = expandEnvVars(raw);
+      if (!path.isAbsolute(expanded)) continue;
+      try {
+        if (!existsSync(expanded)) continue;
+      } catch {
+        continue;
+      }
+      resolved.push({ id: candidate.id, label: candidate.label, command: expanded, args: candidate.args });
+      break;
+    }
+  }
+
+  shellCache = resolved;
+  return resolved;
+}
+
+// A DEVPILOTX_SHELL override still wins, but only if it names a real file.
+function resolveRequestedShell(requestedId: string | null): ResolvedShell | null {
+  const available = resolveAvailableShells();
+  const override = (process.env.DEVPILOTX_SHELL || "").trim();
+
+  if (requestedId) {
+    const match = available.find(shell => shell.id === requestedId);
+    if (match) return match;
+  }
+
+  if (override) {
+    try {
+      if (existsSync(override)) {
+        return {
+          id: "override",
+          label: path.basename(override),
+          command: override,
+          args: process.platform === "win32" ? [] : ["-l"]
+        };
+      }
+    } catch {
+      // Fall through to the platform default.
+    }
+  }
+
+  return available[0] ?? null;
+}
 
 function normalizeOpenRouterApiKey(value: unknown): string {
   return String(value || "")
@@ -86,16 +204,87 @@ const WORKSPACE_TEXT_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".html", ".md", ".txt", ".yml", ".yaml", ".xml", ".svg"
 ]);
 
+// Workspace context budgets.
+//
+// These are deliberately far smaller than the original 120-file / 900 KB defaults,
+// which produced system prompts of roughly 950 KB (~240K tokens). That exceeded the
+// context window of most models (GPT-4o is 128K), so chat failed outright on anything
+// but very large-context models, and the whole repository was re-sent every turn.
+const WORKSPACE_INDEX_MAX_FILES = intFromEnv("DEVPILOTX_WORKSPACE_INDEX_FILES", 300);
+const WORKSPACE_INDEX_MAX_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_INDEX_BYTES", 4_000_000);
+const WORKSPACE_MAX_FILES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_FILES", 16);
+const WORKSPACE_MAX_TOTAL_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_BYTES", 120_000);
+const WORKSPACE_MAX_FILE_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_FILE_BYTES", 24_000);
+const WORKSPACE_INDEX_TTL_MS = intFromEnv("DEVPILOTX_WORKSPACE_TTL_MS", 30_000);
+
+// Small project-defining files that are worth including regardless of the question, so
+// the model still understands the stack when the query matches nothing in particular.
+const WORKSPACE_PRIORITY_FILES = [
+  "package.json", "tsconfig.json", "readme.md", "vite.config.ts", "vite.config.js",
+  "dockerfile", "docker-compose.yml", ".env.example", "requirements.txt", "go.mod", "cargo.toml"
+];
+
+const WORKSPACE_STOP_WORDS = new Set([
+  "the", "and", "for", "are", "but", "not", "you", "all", "can", "her", "was", "one", "our", "out",
+  "day", "get", "has", "him", "his", "how", "its", "new", "now", "old", "see", "two", "way", "who",
+  "did", "use", "why", "this", "that", "with", "from", "have", "they", "been", "were", "said", "each",
+  "which", "their", "will", "other", "about", "many", "then", "them", "these", "some", "what", "make",
+  "like", "into", "time", "very", "when", "come", "here", "just", "know", "take", "than", "well", "only",
+  "file", "files", "code", "please", "should", "would", "could", "does", "doing", "change", "changes",
+  "update", "using", "add", "fix", "need", "want", "help", "give", "show", "tell", "explain", "working",
+  "work", "thing", "things", "there", "where", "about", "same", "also", "much", "more", "most"
+]);
+
+function intFromEnv(name: string, fallback: number): number {
+  const raw = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+}
+
+function extractQueryTerms(query: string): string[] {
+  const terms = new Set<string>();
+  for (const raw of String(query || "").toLowerCase().split(/[^a-z0-9_$.\-/]+/)) {
+    const term = raw.replace(/^[-./]+|[-./]+$/g, "");
+    if (term.length < 3 || WORKSPACE_STOP_WORDS.has(term)) continue;
+    terms.add(term);
+    if (terms.size >= 24) break;
+  }
+  return [...terms];
+}
+
+function scoreWorkspaceFile(relativePath: string, content: string, terms: string[]): number {
+  if (terms.length === 0) return 0;
+  const haystackPath = relativePath.toLowerCase();
+  const haystackBody = content.toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (haystackPath.includes(term)) score += 15;
+    let from = 0;
+    let hits = 0;
+    while (hits < 25) {
+      const at = haystackBody.indexOf(term, from);
+      if (at === -1) break;
+      hits += 1;
+      from = at + term.length;
+    }
+    score += hits;
+  }
+  return score;
+}
+
 async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
   const files: Array<{ path: string; content: string }> = [];
-  const maxFiles = 120;
-  const maxTotalBytes = 900_000;
+  let totalBytes = 0;
 
   async function walk(directory: string): Promise<void> {
-    if (files.length >= maxFiles || files.reduce((sum, file) => sum + file.content.length, 0) >= maxTotalBytes) return;
-    const entries = await fs.readdir(directory, { withFileTypes: true });
+    if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
+    let entries;
+    try {
+      entries = await fs.readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
     for (const entry of entries) {
-      if (files.length >= maxFiles) return;
+      if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
       if (entry.isDirectory() && WORKSPACE_IGNORED_DIRECTORIES.has(entry.name)) continue;
       const absolutePath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
@@ -106,7 +295,9 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
       if (!WORKSPACE_TEXT_EXTENSIONS.has(extension) && entry.name !== "Dockerfile") continue;
       try {
         const content = await fs.readFile(absolutePath, "utf8");
-        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: content.slice(0, 120_000) });
+        const trimmed = content.slice(0, WORKSPACE_MAX_FILE_BYTES);
+        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: trimmed });
+        totalBytes += trimmed.length;
       } catch {
         // Ignore unreadable or concurrently removed files during discovery.
       }
@@ -117,23 +308,113 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
   return files;
 }
 
-async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
-  const discoveredWorkspace = await discoverWorkspace(process.cwd());
-  const workspaceFiles = discoveredWorkspace.length > 0
-    ? discoveredWorkspace
-    : (Array.isArray(workspace) ? workspace : []);
-  if (workspaceFiles.length === 0) {
-    console.warn(`[Workspace discovery] No readable source files found under ${process.cwd()}`);
+// Cached because rebuilding the index re-reads the entire workspace, and it previously
+// ran on every single chat request.
+let workspaceIndexCache: { root: string; at: number; files: Array<{ path: string; content: string }> } | null = null;
+
+async function getWorkspaceIndex(root: string): Promise<Array<{ path: string; content: string }>> {
+  const now = Date.now();
+  if (
+    workspaceIndexCache &&
+    workspaceIndexCache.root === root &&
+    now - workspaceIndexCache.at < WORKSPACE_INDEX_TTL_MS
+  ) {
+    return workspaceIndexCache.files;
+  }
+  const files = await discoverWorkspace(root);
+  workspaceIndexCache = { root, at: now, files };
+  return files;
+}
+
+// Picks the files most relevant to the current question within a small byte budget,
+// instead of dumping the whole repository into every prompt.
+function selectWorkspaceFiles(
+  files: Array<{ path: string; content: string }>,
+  query: string
+): { selected: Array<{ path: string; content: string }>; considered: number } {
+  const terms = extractQueryTerms(query);
+  const scored = files.map(file => ({
+    file,
+    score: scoreWorkspaceFile(file.path, file.content, terms),
+    priority: WORKSPACE_PRIORITY_FILES.includes(path.basename(file.path).toLowerCase())
+  }));
+
+  scored.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority ? -1 : 1;
+    if (b.score !== a.score) return b.score - a.score;
+    return a.file.path.localeCompare(b.file.path);
+  });
+
+  const selected: Array<{ path: string; content: string }> = [];
+  let total = 0;
+  for (const entry of scored) {
+    if (selected.length >= WORKSPACE_MAX_FILES) break;
+    // Priority files always go in; beyond a small floor, only files that actually matched.
+    if (!entry.priority && entry.score === 0 && selected.length >= 4) continue;
+    const size = entry.file.content.length;
+    if (selected.length > 0 && total + size > WORKSPACE_MAX_TOTAL_BYTES) continue;
+    selected.push(entry.file);
+    total += size;
+  }
+  return { selected, considered: files.length };
+}
+
+async function getWorkspaceContext(
+  workspace: unknown,
+  query: string = ""
+): Promise<{ context: string; fileCount: number; considered: number }> {
+  const indexed = await getWorkspaceIndex(WORKSPACE_ROOT);
+  const available = indexed.length > 0 ? indexed : (Array.isArray(workspace) ? workspace : []);
+  if (available.length === 0) {
+    console.warn(`[Workspace discovery] No readable source files found under ${WORKSPACE_ROOT}`);
     return {
-      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${process.cwd()} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
-      fileCount: 0
+      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${WORKSPACE_ROOT} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
+      fileCount: 0,
+      considered: 0
     };
   }
-  console.log(`[Workspace discovery] Loaded ${workspaceFiles.length} files from ${process.cwd()}`);
+
+  const { selected, considered } = selectWorkspaceFiles(available, query);
+  const bytes = selected.reduce((sum, file) => sum + file.content.length, 0);
+  console.log(
+    `[Workspace discovery] Selected ${selected.length}/${considered} files (${bytes} bytes) from ${WORKSPACE_ROOT}`
+  );
+
+  const body = selected.map(file => `FILE: ${file.path}\n${String(file.content || "")}`).join("\n\n");
   return {
-    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server has already read these project files from ${process.cwd()}. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. Base your response on the discovered files.\n${workspaceFiles.map((file: any) => `FILE: ${file.path}\n${String(file.content || '').slice(0, 120000)}`).join('\n\n')}\n`,
-    fileCount: workspaceFiles.length
+    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server read ${considered} project files under ${WORKSPACE_ROOT} and selected the ${selected.length} most relevant to this request. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. If you need a file that is not listed, name the file you need rather than guessing at its contents.\n${body}\n`,
+    fileCount: selected.length,
+    considered
   };
+}
+
+// Resolves a client-supplied path against the workspace root and refuses anything that
+// escapes it. Every /api/fs route goes through this: without it a request could read or
+// overwrite files anywhere on the host (../../, absolute paths, symlinks out of the root).
+interface WorkspacePath {
+  absolute: string;
+  relative: string;
+  error?: string;
+}
+
+function resolveWorkspacePath(candidate: unknown): WorkspacePath {
+  if (typeof candidate !== "string" || !candidate.trim()) {
+    return { absolute: "", relative: "", error: "A file path is required." };
+  }
+  const root = path.resolve(WORKSPACE_ROOT);
+  // The client's file tree stores paths like "/src/app.tsx". Left alone, win32 would treat
+  // that as drive-rooted and resolve it outside the workspace, so strip leading separators
+  // first. A genuinely absolute path (C:\...) still resolves as absolute and is then caught
+  // by the containment check below.
+  const trimmed = candidate.trim().replace(/^[/\\]+/, "");
+  const absolute = path.isAbsolute(trimmed) ? path.normalize(trimmed) : path.resolve(root, trimmed);
+  const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+  // Windows paths are case-insensitive, so compare lowercased there only.
+  const lower = (value: string) => (process.platform === "win32" ? value.toLowerCase() : value);
+  if (lower(absolute) !== lower(root) && !lower(absolute).startsWith(lower(rootWithSep))) {
+    return { absolute: "", relative: "", error: "Path escapes the workspace root." };
+  }
+  return { absolute, relative: path.relative(root, absolute).replace(/\\/g, "/") };
 }
 
 const AGENT_ACTION_PROTOCOL = `
@@ -145,6 +426,14 @@ The block must contain an array of actions. Supported actions:
 {"type":"delete_file","path":"/relative/path","reason":"short explanation"}
 {"type":"run_command","command":"npm test","reason":"short explanation"}
 Use complete file contents, never partial patches or ellipses. Only include run_command when it is safe and directly required; the host will ask for confirmation before executing commands. Keep the user-facing explanation outside the JSON block. If no file change is needed, omit the block.
+`;
+
+const AGENT_LOOP_PROTOCOL = `
+[AGENT LOOP]
+Your reply may produce actions. After they run you will receive their real results and may act again.
+Read those results: if something failed, change your approach instead of repeating the identical action.
+Never claim a file was changed unless an observation confirms it succeeded.
+When the task is finished, reply to the user with no actions block.
 `;
 
 function parseAgentActions(text: string, mode: string): { text: string; actions: any[] } {
@@ -162,6 +451,234 @@ function parseAgentActions(text: string, mode: string): { text: string; actions:
   } catch {
     return { text, actions: [] };
   }
+}
+
+// One call to whichever provider is configured. The agent loop calls this repeatedly, so it
+// must stay provider-agnostic: Gemini, OpenRouter, Groq and Ollama each need different SDK
+// shapes, and a loop that only worked on one of them would be useless in practice.
+async function callChatModel(params: {
+  provider?: string;
+  modelId: string;
+  keys: any;
+  systemPrompt: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  maxTokens?: number;
+}): Promise<{ text: string; modelUsed: string }> {
+  const { provider, modelId, keys, systemPrompt, messages, maxTokens = 2500 } = params;
+  const id = String(modelId || "gemini-3.7-flash");
+
+  const inferProvider = (): string => {
+    if (provider) return String(provider);
+    if (id.startsWith("ollama/")) return "ollama";
+    if (/^(anthropic|openai|deepseek|meta-llama|qwen|minimax|mistralai|nvidia)\//.test(id)) return "openrouter";
+    if (id.includes("groq")) return "groq";
+    return "gemini";
+  };
+  const effective = inferProvider();
+
+  if (effective === "openrouter") {
+    const rawKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
+    if (rawKey) {
+      const openai = createOpenRouterClient(rawKey, "DevPilotX Agent");
+      const completion = await openai.chat.completions.create({
+        model: id,
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        max_tokens: maxTokens
+      });
+      return { text: completion.choices[0]?.message?.content || "", modelUsed: id };
+    }
+  }
+
+  if (effective === "ollama") {
+    const baseUrl = (keys?.ollamaUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434")
+      .trim()
+      .replace(/^["'`]|["'`]$/g, "");
+    const openai = new OpenAI({
+      baseURL: baseUrl.replace(/\/+$/, "") + "/v1",
+      apiKey: keys?.ollamaApiKey || "ollama"
+    });
+    const modelName = keys?.ollamaModel || id.replace(/^ollama\//, "");
+    const completion = await openai.chat.completions.create({
+      model: modelName,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      max_tokens: maxTokens
+    });
+    return { text: completion.choices[0]?.message?.content || "", modelUsed: modelName };
+  }
+
+  if (effective === "groq") {
+    const apiKey = keys?.groq || process.env.GROQ_API_KEY;
+    if (apiKey) {
+      const openai = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey });
+      const completion = await openai.chat.completions.create({
+        model: id.replace(/^groq\//, ""),
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        max_tokens: maxTokens
+      });
+      return { text: completion.choices[0]?.message?.content || "", modelUsed: id };
+    }
+  }
+
+  const apiKey = keys?.gemini || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("No API key configured for the selected model.");
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+  });
+  const target = id.startsWith("gemini") ? id : "gemini-3.7-flash";
+  const response = await ai.models.generateContent({
+    model: target,
+    contents: messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    })),
+    config: { systemInstruction: systemPrompt }
+  });
+  return { text: response.text || "", modelUsed: target };
+}
+
+const COMMAND_TIMEOUT_MS = Number.parseInt(process.env.DEVPILOTX_COMMAND_TIMEOUT_MS || "120000", 10);
+const COMMAND_MAX_OUTPUT = 8000;
+
+// Commands come from a model, so a few patterns are refused outright rather than run.
+const COMMAND_DENY_PATTERNS: RegExp[] = [
+  /\brm\s+-rf\s+[/~]/i,
+  /\bformat\s+[a-z]:/i,
+  /\bdel\s+\/f\s+\/s\s+\/q/i,
+  /\bshutdown\b/i,
+  /\bmkfs\b/i,
+  /\bdd\s+if=/i,
+  /\bshutdown\s+-/i
+];
+
+// Commands are model-generated, so the default is to gate rather than trust: a small
+// allowlist of read-only and routine dev commands runs on its own, and anything else has to
+// be approved. Set DEVPILOTX_COMMAND_APPROVAL=off to disable gating entirely.
+const COMMAND_APPROVAL = (process.env.DEVPILOTX_COMMAND_APPROVAL || "on").trim().toLowerCase() !== "off";
+
+const COMMAND_SAFE_PATTERNS: RegExp[] = [
+  /^echo\b/i,
+  /^ls\b/i,
+  /^dir\b/i,
+  /^cat\b/i,
+  /^type\b/i,
+  /^pwd\b/i,
+  /^git\s+(status|log|diff|branch|show|rev-parse)\b/i,
+  /^npm\s+(test|run\s+(test|build|lint|typecheck))\b/i,
+  /^npx\s+tsc\s+--noEmit\b/i,
+  /^(node|npm|python)\s+(-v|--version)\b/i
+];
+
+function commandNeedsApproval(command: string): boolean {
+  if (!COMMAND_APPROVAL) return false;
+  const trimmed = command.trim();
+  if (!trimmed) return true;
+  return !COMMAND_SAFE_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
+async function runCommand(command: string): Promise<{ ok: boolean; output: string; refused?: string }> {
+  const denied = COMMAND_DENY_PATTERNS.find(pattern => pattern.test(command));
+  if (denied) {
+    return { ok: false, output: `Refused to run a destructive command (matched ${denied.source}).`, refused: denied.source };
+  }
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      cwd: WORKSPACE_ROOT,
+      timeout: COMMAND_TIMEOUT_MS,
+      maxBuffer: 1024 * 1024 * 8,
+      windowsHide: true
+    });
+    const output = `${stdout || ""}${stderr || ""}`.trim();
+    return { ok: true, output: output.slice(0, COMMAND_MAX_OUTPUT) || "(no output)" };
+  } catch (error: any) {
+    const output = `${error?.stdout || ""}${error?.stderr || ""}${error?.message || ""}`.trim();
+    return { ok: false, output: output.slice(0, COMMAND_MAX_OUTPUT) || "Command failed with no output." };
+  }
+}
+
+// Executes one agent action against the real workspace and reports what happened. The
+// report is the loop's observation: without it the model is acting blind.
+async function executeAgentAction(
+  action: any
+): Promise<{
+  type: string;
+  target: string;
+  ok: boolean;
+  detail: string;
+  linesAdded?: number;
+  linesRemoved?: number;
+  requiresApproval?: boolean;
+}> {
+  if (action.type === "edit_file" || action.type === "create_file") {
+    const resolved = resolveWorkspacePath(action.path);
+    if (resolved.error) {
+      return { type: action.type, target: String(action.path), ok: false, detail: resolved.error };
+    }
+    const content = typeof action.content === "string" ? action.content : null;
+    if (content === null) {
+      return { type: action.type, target: resolved.relative, ok: false, detail: "Action had no content." };
+    }
+    let before: string | null;
+    try {
+      before = await fs.readFile(resolved.absolute, "utf8");
+    } catch {
+      before = null;
+    }
+    if (before === null && action.type === "edit_file") {
+      return { type: action.type, target: resolved.relative, ok: false, detail: "File does not exist; use create_file." };
+    }
+    try {
+      await fs.mkdir(path.dirname(resolved.absolute), { recursive: true });
+      await fs.writeFile(resolved.absolute, content, "utf8");
+      const beforeLines = before === null ? 0 : before.split("\n").length;
+      const afterLines = content.split("\n").length;
+      return {
+        type: action.type,
+        target: resolved.relative,
+        ok: true,
+        detail: before === null ? "created" : "updated",
+        linesAdded: Math.max(0, afterLines - beforeLines),
+        linesRemoved: Math.max(0, beforeLines - afterLines)
+      };
+    } catch (error: any) {
+      return { type: action.type, target: resolved.relative, ok: false, detail: error?.message || "write failed" };
+    }
+  }
+
+  if (action.type === "delete_file") {
+    const resolved = resolveWorkspacePath(action.path);
+    if (resolved.error) {
+      return { type: action.type, target: String(action.path), ok: false, detail: resolved.error };
+    }
+    try {
+      await fs.unlink(resolved.absolute);
+      return { type: action.type, target: resolved.relative, ok: true, detail: "deleted" };
+    } catch (error: any) {
+      return { type: action.type, target: resolved.relative, ok: false, detail: error?.message || "delete failed" };
+    }
+  }
+
+  if (action.type === "run_command") {
+    const command = String(action.command || "");
+    if (commandNeedsApproval(command)) {
+      return {
+        type: action.type,
+        target: command,
+        ok: false,
+        detail: "Needs your approval before it will run.",
+        requiresApproval: true
+      };
+    }
+    const result = await runCommand(command);
+    return {
+      type: action.type,
+      target: command,
+      ok: result.ok,
+      detail: result.output
+    };
+  }
+
+  return { type: String(action.type || "unknown"), target: "", ok: false, detail: "Unsupported action type." };
 }
 
 async function getAvailableOpenRouterFallback(openai: OpenAI, requestedModel: string): Promise<string | null> {
@@ -293,7 +810,8 @@ function buildEnhancedSystemPrompt(
   skills: any[] = [],
   trainingProfile: any = null,
   trainingExamples: any[] = [],
-  knowledgeDocs: any[] = []
+  knowledgeDocs: any[] = [],
+  query: string = ""
 ): string {
   let prompt = `You are DevPilotX, an expert AI developer assistant inside a modern IDE, equipped with Claude-style behavioral skills and custom training demonstrations.\nProvide high-quality, production-ready, clean, well-typed code, explanations, and architectural guidance.\n`;
 
@@ -326,7 +844,21 @@ function buildEnhancedSystemPrompt(
   }
 
   // 2. Active Claude-style Skills
-  const activeSkills = (skills || []).filter((s: any) => s && s.enabled);
+  // Skills carry triggers for a reason: injecting every enabled skill into every request
+  // would put every skill's instructions and exemplars into the prompt whether or not they
+  // are relevant, which is exactly the kind of context bloat that breaks requests. Only
+  // skills whose triggers match the request are applied. A trigger of "*" means always on.
+  const haystack = String(query || "").toLowerCase();
+  const activeSkills = (skills || []).filter((s: any) => {
+    if (!s || !s.enabled) return false;
+    const triggers = Array.isArray(s.triggers) ? s.triggers : [];
+    if (triggers.length === 0) return false;
+    if (triggers.some((t: any) => String(t).trim() === "*")) return true;
+    return triggers.some((t: any) => {
+      const term = String(t || "").toLowerCase().trim();
+      return term.length > 0 && haystack.includes(term);
+    });
+  });
   if (activeSkills.length > 0) {
     prompt += `\n[ACTIVE AGENT SKILLS & SPECIALIZATIONS (${activeSkills.length} SKILLS ACTIVE)]\n`;
     prompt += `You have specialized skills enabled. Strictly obey their instructions and guidelines:\n\n`;
@@ -369,11 +901,288 @@ function buildEnhancedSystemPrompt(
   return prompt;
 }
 
+const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+function isLoopbackHost(hostHeader: string): boolean {
+  const raw = (hostHeader || "").trim();
+  if (!raw) return false;
+  let hostname: string;
+  if (raw.startsWith("[")) {
+    const end = raw.indexOf("]");
+    hostname = end === -1 ? raw : raw.slice(0, end + 1);
+  } else {
+    hostname = raw.split(":")[0];
+  }
+  return LOOPBACK_HOSTNAMES.has(hostname.toLowerCase());
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function readSessionCookie(cookieHeader: string | undefined): string {
+  if (!cookieHeader) return "";
+  for (const part of cookieHeader.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() === SESSION_COOKIE) {
+      return decodeURIComponent(part.slice(idx + 1).trim());
+    }
+  }
+  return "";
+}
+
+function hasValidSession(cookieHeader: string | undefined): boolean {
+  if (!AUTH_TOKEN) return true;
+  return safeEqual(readSessionCookie(cookieHeader), AUTH_TOKEN);
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number.isFinite(SERVER_PORT) ? SERVER_PORT : 3000;
 
-  app.use(express.json());
+  app.disable("x-powered-by");
+
+  // Defence 1: reject non-loopback Host headers (DNS-rebinding protection).
+  app.use((req, res, next) => {
+    if (!isLoopbackHost(req.headers.host || "")) {
+      res.status(403).type("text/plain").send("Forbidden: invalid Host header.");
+      return;
+    }
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    next();
+  });
+
+  // Defence 2: exchange the one-time launch token for an HttpOnly session cookie.
+  // The renderer keeps using relative URLs, so it never has to know about the token.
+  app.get("/__auth", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!AUTH_TOKEN) {
+      res.redirect("/");
+      return;
+    }
+    const provided = typeof req.query.token === "string" ? req.query.token : "";
+    if (!safeEqual(provided, AUTH_TOKEN)) {
+      res.status(401).type("text/plain").send("Unauthorized");
+      return;
+    }
+    res.setHeader(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=${encodeURIComponent(AUTH_TOKEN)}; HttpOnly; SameSite=Strict; Path=/`
+    );
+    res.redirect("/");
+  });
+
+  // Defence 3: every other route, static asset and WebSocket requires a valid session.
+  app.use((req, res, next) => {
+    if (hasValidSession(req.headers.cookie)) {
+      next();
+      return;
+    }
+    res.status(401).json({ error: "Unauthorized. Start DevPilotX through the desktop app." });
+  });
+
+  app.use(express.json({ limit: "2mb" }));
+
+  // Shells available for the terminal's picker. Authenticated like every other route.
+  app.get("/api/shells", (_req, res) => {
+    res.json({
+      shells: resolveAvailableShells().map(shell => ({ id: shell.id, label: shell.label })),
+      defaultId: resolveRequestedShell(null)?.id ?? null
+    });
+  });
+
+  // Which AI providers the BACKEND itself can serve, from its environment. Booleans
+  // only — the keys are never echoed. The renderer unions this with the user's own
+  // keychain credentials to decide which models to offer in the assistant.
+  app.get("/api/provider-status", (_req, res) => {
+    res.json({
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+      openrouter: Boolean(process.env.OPENROUTER_API_KEY),
+      groq: Boolean(process.env.GROQ_API_KEY),
+      ollama: Boolean(process.env.OLLAMA_BASE_URL)
+    });
+  });
+
+  // Real filesystem access for the agent.
+  //
+  // Previously the agent's edits only mutated React state held in the browser, so nothing
+  // it "changed" ever reached disk. These routes make writes real. They are authenticated
+  // like every other route, and every path is funnelled through resolveWorkspacePath so a
+  // request cannot escape the workspace root.
+  app.post("/api/fs/read", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      const content = await fs.readFile(resolved.absolute, "utf8");
+      res.json({ path: resolved.relative, content });
+    } catch (error: any) {
+      res.status(404).json({ error: `Cannot read ${resolved.relative}: ${error?.message || "not found"}` });
+    }
+  });
+
+  app.post("/api/fs/write", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    const content = typeof req.body?.content === "string" ? req.body.content : null;
+    if (content === null) return res.status(400).json({ error: "Content must be a string." });
+
+    let before: string | null;
+    try {
+      before = await fs.readFile(resolved.absolute, "utf8");
+    } catch {
+      before = null;
+    }
+
+    try {
+      await fs.mkdir(path.dirname(resolved.absolute), { recursive: true });
+      await fs.writeFile(resolved.absolute, content, "utf8");
+      const beforeLines = before === null ? 0 : before.split("\n").length;
+      const afterLines = content.split("\n").length;
+      console.log(`[fs] write ${resolved.relative} (${Buffer.byteLength(content, "utf8")} bytes, created=${before === null})`);
+      res.json({
+        ok: true,
+        path: resolved.relative,
+        created: before === null,
+        bytes: Buffer.byteLength(content, "utf8"),
+        linesAdded: Math.max(0, afterLines - beforeLines),
+        linesRemoved: Math.max(0, beforeLines - afterLines)
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: `Cannot write ${resolved.relative}: ${error?.message || "write failed"}` });
+    }
+  });
+
+  app.post("/api/fs/delete", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      await fs.unlink(resolved.absolute);
+      console.log(`[fs] delete ${resolved.relative}`);
+      res.json({ ok: true, path: resolved.relative });
+    } catch (error: any) {
+      res.status(500).json({ error: `Cannot delete ${resolved.relative}: ${error?.message || "delete failed"}` });
+    }
+  });
+
+  app.post("/api/fs/list", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path ?? ".");
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      const entries = await fs.readdir(resolved.absolute, { withFileTypes: true });
+      res.json({
+        path: resolved.relative,
+        entries: entries.map(entry => ({
+          name: entry.name,
+          type: entry.isDirectory() ? "folder" : "file"
+        }))
+      });
+    } catch (error: any) {
+      res.status(404).json({ error: `Cannot list ${resolved.relative}: ${error?.message || "not found"}` });
+    }
+  });
+
+  // Directories the tree endpoint never descends into: dependency folders, build output
+  // and VCS internals would drown the explorer and can contain tens of thousands of files.
+  const TREE_IGNORED_DIRS = new Set([
+    "node_modules", ".git", ".hg", ".svn", "dist", "dist-electron", "release",
+    "out", ".next", ".nuxt", "coverage", ".cache", ".turbo",
+    "__pycache__", ".venv", "venv", "target", "bin", "obj"
+  ]);
+  const TREE_MAX_DEPTH = 8;
+  const TREE_MAX_ENTRIES = 4000;
+
+  interface TreeEntry {
+    name: string;
+    type: "file" | "folder";
+    children?: TreeEntry[];
+  }
+
+  // Recursive listing so the explorer can show the real workspace on startup instead of a
+  // virtual tree. Depth- and entry-capped: a runaway monorepo must not stall the backend.
+  app.post("/api/fs/tree", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path ?? ".");
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+
+    let visited = 0;
+    let truncated = false;
+
+    const walk = async (absolute: string, depth: number): Promise<TreeEntry[]> => {
+      if (depth > TREE_MAX_DEPTH || visited >= TREE_MAX_ENTRIES) {
+        truncated = true;
+        return [];
+      }
+      let dirents;
+      try {
+        dirents = await fs.readdir(absolute, { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      const entries: TreeEntry[] = [];
+      for (const dirent of dirents) {
+        if (visited >= TREE_MAX_ENTRIES) {
+          truncated = true;
+          break;
+        }
+        if (dirent.name.startsWith(".") && dirent.name !== ".env.example") continue;
+        visited += 1;
+        if (dirent.isDirectory()) {
+          if (TREE_IGNORED_DIRS.has(dirent.name)) continue;
+          entries.push({
+            name: dirent.name,
+            type: "folder",
+            children: await walk(path.join(absolute, dirent.name), depth + 1)
+          });
+        } else if (dirent.isFile()) {
+          entries.push({ name: dirent.name, type: "file" });
+        }
+      }
+      return entries;
+    };
+
+    try {
+      const stat = await fs.stat(resolved.absolute);
+      if (!stat.isDirectory()) {
+        return res.status(400).json({ error: `${resolved.relative || "."} is not a directory.` });
+      }
+      const entries = await walk(resolved.absolute, 0);
+      res.json({ path: resolved.relative, entries, truncated });
+    } catch (error: any) {
+      res.status(404).json({ error: `Cannot list ${resolved.relative || "."}: ${error?.message || "not found"}` });
+    }
+  });
+
+  app.post("/api/fs/mkdir", async (req, res) => {
+    const resolved = resolveWorkspacePath(req.body?.path);
+    if (resolved.error) return res.status(400).json({ error: resolved.error });
+    try {
+      await fs.mkdir(resolved.absolute, { recursive: true });
+      console.log(`[fs] mkdir ${resolved.relative}`);
+      res.json({ ok: true, path: resolved.relative });
+    } catch (error: any) {
+      res.status(500).json({ error: `Cannot create ${resolved.relative}: ${error?.message || "mkdir failed"}` });
+    }
+  });
+
+  app.post("/api/fs/rename", async (req, res) => {
+    const from = resolveWorkspacePath(req.body?.from);
+    if (from.error) return res.status(400).json({ error: from.error });
+    const to = resolveWorkspacePath(req.body?.to);
+    if (to.error) return res.status(400).json({ error: to.error });
+    try {
+      await fs.rename(from.absolute, to.absolute);
+      console.log(`[fs] rename ${from.relative} -> ${to.relative}`);
+      res.json({ ok: true, from: from.relative, to: to.relative });
+    } catch (error: any) {
+      res.status(500).json({ error: `Cannot rename ${from.relative}: ${error?.message || "rename failed"}` });
+    }
+  });
+
 
   app.post("/api/provider-models", async (req, res) => {
     const { keys } = req.body || {};
@@ -552,8 +1361,15 @@ async function startServer() {
       const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      const workspaceDiscovery = await getWorkspaceContext(workspace);
-      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
+      // Rank workspace files against what the user actually asked, so the prompt stays a
+      // bounded size instead of re-sending the entire repository on every turn.
+      const workspaceQuery = (Array.isArray(messages) ? messages : [])
+        .filter((m: any) => m && typeof m.content === "string" && m.content.trim() && m.role !== "agent")
+        .slice(-3)
+        .map((m: any) => m.content)
+        .join("\n");
+      const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
+      const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs, workspaceQuery) +
         agentModeInstruction(agentMode) +
         ((agentMode === "agent" || agentMode === "autonomous") ? AGENT_ACTION_PROTOCOL : "") + workspaceDiscovery.context;
 
@@ -855,7 +1671,9 @@ async function startServer() {
         metadata: {
           skillsActiveCount: activeSkillsCount,
           trainingExamplesCount: activeExamplesCount,
-          workspaceFilesDiscovered: workspaceDiscovery.fileCount
+          workspaceFilesDiscovered: workspaceDiscovery.fileCount,
+          workspaceFilesConsidered: workspaceDiscovery.considered,
+          workspaceContextBytes: workspaceDiscovery.context.length
         }
       });
     } catch (error: any) {
@@ -865,7 +1683,9 @@ async function startServer() {
         try {
           const parsed = JSON.parse(errorMessage);
           errorMessage = parsed?.error?.message || errorMessage;
-        } catch (_e) {}
+        } catch {
+          // The message was not a JSON error payload; keep it as-is.
+        }
       }
       console.log(`[API Route /api/chat] Notice: ${errorMessage.slice(0, 100)}`);
       
@@ -884,6 +1704,133 @@ async function startServer() {
   });
 
   // Dedicated Image Generation Endpoint for Non-Coding Tasks
+  // The agent loop.
+  //
+  // /api/chat is single-turn: it asks once, parses one action block, and stops. The model
+  // therefore never sees whether its edit actually worked, so it cannot recover from a
+  // mistake and cannot chain steps together. This endpoint runs a real loop -- propose,
+  // execute, observe, repeat -- until the model stops asking for actions or the step cap is
+  // reached. Every action goes through executeAgentAction, so the same workspace-root
+  // containment applies here as to the /api/fs routes.
+  app.post("/api/agent", async (req, res) => {
+    try {
+      const {
+        messages,
+        provider,
+        modelId,
+        keys,
+        agentMode = "agent",
+        workspace,
+        skills,
+        trainingProfile,
+        trainingExamples,
+        knowledgeDocs
+      } = req.body || {};
+
+      const maxSteps = Number.parseInt(process.env.DEVPILOTX_AGENT_MAX_STEPS || "6", 10);
+
+      const history: Array<{ role: "user" | "assistant"; content: string }> = (
+        Array.isArray(messages) ? messages : []
+      )
+        .filter((m: any) => m && typeof m.content === "string" && m.content.trim())
+        .map((m: any) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content
+        }));
+
+      if (history.length === 0) history.push({ role: "user", content: "Hello!" });
+
+      const appliedActions: any[] = [];
+      const steps: any[] = [];
+      let finalText = "";
+      let modelUsed = String(modelId || "");
+      let hitStepCap = false;
+
+      for (let step = 1; step <= maxSteps; step++) {
+        const workspaceQuery = history
+          .filter(m => m.role === "user")
+          .slice(-3)
+          .map(m => m.content)
+          .join("\n");
+        const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
+
+        const systemPrompt =
+          buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs, workspaceQuery) +
+          agentModeInstruction(agentMode) +
+          AGENT_ACTION_PROTOCOL +
+          AGENT_LOOP_PROTOCOL +
+          workspaceDiscovery.context;
+
+        const { text, modelUsed: used } = await callChatModel({
+          provider,
+          modelId,
+          keys,
+          systemPrompt,
+          messages: history
+        });
+        modelUsed = used;
+
+        const parsed = parseAgentActions(text, agentMode);
+
+        if (parsed.actions.length === 0) {
+          finalText = parsed.text;
+          break;
+        }
+
+        const observations: string[] = [];
+        for (const action of parsed.actions) {
+          const result = await executeAgentAction(action);
+          appliedActions.push({ type: action.type, path: action.path, command: action.command, ...result });
+          observations.push(
+            `- ${result.type} on ${result.target}: ${result.ok ? "OK" : "FAILED"} -- ${result.detail}`
+          );
+        }
+        steps.push({ step, actions: parsed.actions.length, observations });
+
+        history.push({ role: "assistant", content: parsed.text || "(acting)" });
+        history.push({
+          role: "user",
+          content: `[OBSERVATIONS FROM STEP ${step}]\n${observations.join(
+            "\n"
+          )}\n\nIf the task is now complete, reply to the user with no actions block. If more work remains, continue with another actions block. Do not repeat an action that just failed without changing it.`
+        });
+
+        if (step === maxSteps) hitStepCap = true;
+      }
+
+      res.json({
+        success: true,
+        text:
+          finalText ||
+          (hitStepCap
+            ? "Reached the step limit before finishing. Here is what was completed so far."
+            : "Agent completed the request."),
+        actions: appliedActions,
+        steps,
+        modelUsed,
+        hitStepCap
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || "Failed to run the agent loop." });
+    }
+  });
+
+  // Runs a command the user explicitly approved. The agent loop refuses gated commands
+  // outright, so this is the only path by which they execute.
+  app.post("/api/agent/approve", async (req, res) => {
+    try {
+      const { command } = req.body || {};
+      if (typeof command !== "string" || !command.trim()) {
+        return res.status(400).json({ error: "A command is required." });
+      }
+      const result = await runCommand(command);
+      console.log(`[agent] approved command ran (ok=${result.ok}): ${command.slice(0, 120)}`);
+      res.json({ ok: result.ok, output: result.output, command });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || "Failed to run the approved command." });
+    }
+  });
+
   app.post("/api/generate-image", async (req, res) => {
     try {
       const { prompt, aspectRatio = "1:1", style = "modern", engine = "auto", modelId, keys, agentMode } = req.body;
@@ -1020,7 +1967,7 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
-      const workspaceDiscovery = await getWorkspaceContext(workspace);
+      const workspaceDiscovery = await getWorkspaceContext(workspace, String(query || ""));
 
       let report = "";
       let sources: { title: string; url: string; snippet?: string }[] = [];
@@ -1174,13 +2121,16 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   });
 
   if (process.env.NODE_ENV !== "production") {
+    // Loaded lazily so the Vite dev toolchain is never bundled into (or required by)
+    // the packaged desktop backend, which always runs in production mode.
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = DIST_DIR;
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
@@ -1197,54 +2147,116 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
       return;
     }
 
+    // The terminal bridge spawns a real shell, so it is authenticated exactly like the
+    // HTTP API and additionally rejects cross-origin upgrades.
+    if (!isLoopbackHost(request.headers.host || "") || !hasValidSession(request.headers.cookie)) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    const origin = request.headers.origin;
+    if (origin && origin !== `http://${request.headers.host}`) {
+      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    const requestedShellId = requestUrl.searchParams.get("shell");
     terminalServer.handleUpgrade(request, socket, head, ws => {
-      terminalServer.emit("connection", ws, request);
+      terminalServer.emit("connection", ws, request, requestedShellId);
     });
   });
 
-  terminalServer.on("connection", (ws: WebSocket) => {
-    const isWindows = process.platform === "win32";
-    const shell = isWindows ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "/bin/bash");
-    const shellArgs = isWindows ? [] : ["-i"];
-    let shellProcess: ChildProcessWithoutNullStreams;
+  terminalServer.on("connection", (ws: WebSocket, _request: unknown, requestedShellId?: string | null) => {
+    // A real terminal needs a pseudo-terminal, not piped stdio. With pipes the shell runs in
+    // non-interactive batch mode, so you lose echo, prompts, tab completion, command history
+    // and colour. node-pty allocates a ConPTY on Windows and a pty elsewhere.
+    // The requested id is resolved against the allowlist; unknown ids fall back to the default.
+    const shellInfo = resolveRequestedShell(requestedShellId ?? null);
+    if (!shellInfo) {
+      ws.send(JSON.stringify({ type: "error", message: "No usable shell was found on this system." }));
+      ws.close();
+      return;
+    }
+    const shell = shellInfo.command;
+    const shellArgs = shellInfo.args;
 
+    let term: pty.IPty;
     try {
-      shellProcess = spawn(shell, shellArgs, {
-        cwd: process.cwd(),
-        env: process.env,
-        stdio: "pipe",
-        windowsHide: true,
+      term = pty.spawn(shell, shellArgs, {
+        name: "xterm-256color",
+        cols: 120,
+        rows: 30,
+        cwd: WORKSPACE_ROOT,
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          COLORTERM: "truecolor"
+        } as { [key: string]: string }
       });
     } catch (error: any) {
-      ws.send(JSON.stringify({ type: "error", message: error?.message || "Unable to start shell." }));
+      // Detection only proves the executable exists -- WSL, for example, ships wsl.exe even
+      // when no distribution is installed, so a spawn can still fail. Say which shell failed
+      // and what to do about it instead of surfacing a bare error code.
+      const reason = error?.message || "unknown error";
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: `Could not start ${shellInfo.label} (${reason}). Choose a different shell from the dropdown.`
+        })
+      );
       ws.close();
       return;
     }
 
+    let closed = false;
     const send = (type: string, data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type, data }));
       }
     };
 
-    send("ready", `DevPilotX terminal connected to ${shell}\r\n`);
-    shellProcess.stdout.on("data", data => send("output", data.toString()));
-    shellProcess.stderr.on("data", data => send("output", data.toString()));
-    shellProcess.on("error", error => send("error", error.message));
-    shellProcess.on("exit", (code, signal) => {
-      send("exit", `\r\n[process exited${code === null ? ` with ${signal}` : ` with code ${code}`}]\r\n`);
+    // Raw VT output (ANSI colour, cursor movement, window title) is forwarded untouched; the
+    // client's xterm.js instance is what interprets it.
+    // Tells the client which shell it actually got, since the requested id may have
+    // fallen back to the platform default.
+    send("shell", shellInfo.label);
+
+    term.onData(data => send("output", data));
+
+    term.onExit(({ exitCode, signal }) => {
+      if (closed) return;
+      closed = true;
+      send("exit", `\r\n[process exited${signal ? ` with signal ${signal}` : ` with code ${exitCode}`}]\r\n`);
       if (ws.readyState === WebSocket.OPEN) ws.close();
     });
 
     ws.on("message", raw => {
       try {
-        const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
-        if (message.type === "command" && typeof message.data === "string") {
-          shellProcess.stdin.write(`${message.data}${isWindows ? "\r\n" : os.EOL}`);
-        } else if (message.type === "input" && typeof message.data === "string") {
-          shellProcess.stdin.write(message.data);
+        const message = JSON.parse(raw.toString()) as {
+          type?: string;
+          data?: string;
+          cols?: number;
+          rows?: number;
+        };
+        if (message.type === "input" && typeof message.data === "string") {
+          term.write(message.data);
+        } else if (message.type === "command" && typeof message.data === "string") {
+          // Retained for compatibility with the older composer-style client.
+          term.write(`${message.data}\r`);
+        } else if (message.type === "resize") {
+          const cols = Math.floor(Number(message.cols) || 0);
+          const rows = Math.floor(Number(message.rows) || 0);
+          if (cols > 1 && rows > 1) {
+            try {
+              term.resize(Math.min(cols, 1000), Math.min(rows, 500));
+            } catch {
+              // The shell may have exited between the resize and this call.
+            }
+          }
         } else if (message.type === "interrupt") {
-          shellProcess.kill("SIGINT");
+          // Ctrl+C goes through the pty so the shell handles it, rather than us signalling.
+          term.write("\u0003");
         }
       } catch {
         send("error", "Invalid terminal message.");
@@ -1252,12 +2264,27 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     });
 
     ws.on("close", () => {
-      if (!shellProcess.killed) shellProcess.kill();
+      closed = true;
+      try {
+        term.kill();
+      } catch {
+        // Already exited.
+      }
     });
   });
 
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  httpServer.listen(PORT, SERVER_HOST, () => {
+    const address = httpServer.address();
+    const actualPort = typeof address === "object" && address ? address.port : PORT;
+    console.log(`Server running on http://${SERVER_HOST}:${actualPort}`);
+    console.log(
+      `DEVPILOTX_READY ${JSON.stringify({
+        port: actualPort,
+        host: SERVER_HOST,
+        workspace: WORKSPACE_ROOT,
+        auth: AUTH_TOKEN ? "token" : "none"
+      })}`
+    );
   });
 }
 

@@ -14,21 +14,32 @@ import {
   FolderGit2,
   Minimize2,
   Check,
+  Pencil,
   Trash2
 } from 'lucide-react';
 import { FileNode } from '../types';
 
 export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
-  const { fileTree, createNewFile, setActiveView } = useIDE();
-  const [isCreatingFile, setIsCreatingFile] = useState(false);
-  const [newFileName, setNewFileName] = useState('');
+  const { fileTree, createNewFile, createFolder, refreshFileTree, workspaceTruncated } = useIDE();
+  const [createMode, setCreateMode] = useState<'file' | 'folder' | null>(null);
+  const [newEntryName, setNewEntryName] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleCreateNewFile = (e: React.FormEvent) => {
+  const handleCreateEntry = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFileName.trim()) return;
-    createNewFile(newFileName.trim());
-    setNewFileName('');
-    setIsCreatingFile(false);
+    if (!newEntryName.trim()) return;
+    if (createMode === 'folder') {
+      createFolder(newEntryName.trim());
+    } else {
+      createNewFile(newEntryName.trim());
+    }
+    setNewEntryName('');
+    setCreateMode(null);
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    void refreshFileTree().finally(() => setIsRefreshing(false));
   };
 
   return (
@@ -43,33 +54,41 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setIsCreatingFile(true)}
+              onClick={() => { setCreateMode('file'); setNewEntryName(''); }}
               className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#21262D]"
               title="New File (Ctrl+N)"
             >
               <FilePlus size={13} />
             </button>
             <button
-              onClick={() => setActiveView('editor')}
+              onClick={() => { setCreateMode('folder'); setNewEntryName(''); }}
               className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#21262D]"
-              title="Refresh Explorer"
+              title="New Folder"
             >
-              <RefreshCw size={13} />
+              <FolderPlus size={13} />
+            </button>
+            <button
+              onClick={handleRefresh}
+              className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#21262D] disabled:opacity-40"
+              title="Reload from disk"
+              disabled={isRefreshing}
+            >
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
       )}
 
-      {/* Inline New File Form */}
-      {isCreatingFile && (
-        <form onSubmit={handleCreateNewFile} className="p-2 border-b border-[#30363D] bg-[#0D1117]">
+      {/* Inline New File / Folder Form */}
+      {createMode && (
+        <form onSubmit={handleCreateEntry} className="p-2 border-b border-[#30363D] bg-[#0D1117]">
           <div className="flex items-center gap-1">
             <input
               type="text"
               autoFocus
-              placeholder="filename.tsx"
-              value={newFileName}
-              onChange={(e) => setNewFileName(e.target.value)}
+              placeholder={createMode === 'folder' ? 'folder-name' : 'filename.tsx'}
+              value={newEntryName}
+              onChange={(e) => setNewEntryName(e.target.value)}
               className="flex-1 bg-[#161B22] text-xs p-1 border border-[#58A6FF] rounded outline-none text-white font-mono"
             />
             <button
@@ -81,7 +100,7 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             </button>
             <button
               type="button"
-              onClick={() => setIsCreatingFile(false)}
+              onClick={() => setCreateMode(null)}
               className="p-1 text-[#8B949E] hover:text-white"
               title="Cancel"
             >
@@ -89,6 +108,12 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
             </button>
           </div>
         </form>
+      )}
+
+      {workspaceTruncated && (
+        <div className="px-3 py-1.5 border-b border-[#30363D] bg-[#2D2407] text-[10px] text-[#E3B341]">
+          Workspace is large — showing a partial tree (depth/entry limits reached).
+        </div>
       )}
 
       {/* File Tree List */}
@@ -102,17 +127,30 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 };
 
 const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level }) => {
-  const { openFile, activeFileId, deleteFile } = useIDE();
+  const { openFile, activeFileId, deleteFile, renamePath } = useIDE();
   const [isOpen, setIsOpen] = useState(true);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(node.name);
 
   const isFolder = node.type === 'folder';
   const isActive = activeFileId === node.id;
 
   const handleClick = () => {
+    if (isRenaming) return;
     if (isFolder) {
       setIsOpen(!isOpen);
     } else {
       openFile(node);
+    }
+  };
+
+  const commitRename = () => {
+    setIsRenaming(false);
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== node.name) {
+      renamePath(node.id, trimmed);
+    } else {
+      setRenameValue(node.name);
     }
   };
 
@@ -130,7 +168,7 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
     if (isFolder) {
       return isOpen ? <ChevronDown size={14} className="mr-1 opacity-80" /> : <ChevronRight size={14} className="mr-1 opacity-80" />;
     }
-    
+
     if (node.name.endsWith('.ts') || node.name.endsWith('.tsx')) {
       return <FileCode size={14} className="mr-2 text-[#41b883]" />;
     }
@@ -149,19 +187,58 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
         className={`group flex items-center py-1 cursor-pointer hover:bg-[#21262D] select-none ${isActive ? 'bg-[#21262D] border-l-2 border-[#58A6FF] text-[#58A6FF]' : 'text-[#8B949E] border-l-2 border-transparent'}`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={handleClick}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          setRenameValue(node.name);
+          setIsRenaming(true);
+        }}
       >
         {getFileIcon()}
-        {isFolder && !isOpen && <Folder size={14} className="mr-2 text-[#8B949E]" />}
-        {isFolder && isOpen && <Folder size={14} className="mr-2 text-[#8B949E]" />}
-        <span className="truncate flex-1">{node.name}</span>
-        <button
-          onClick={handleDelete}
-          className="p-1 rounded text-[#8B949E] hover:text-[#F85149] hover:bg-[#30363D] opacity-0 group-hover:opacity-100 transition-opacity"
-          title={isFolder ? 'Delete Folder' : 'Delete File'}
-          aria-label={isFolder ? `Delete folder ${node.name}` : `Delete file ${node.name}`}
-        >
-          <Trash2 size={12} />
-        </button>
+        {isFolder && <Folder size={14} className="mr-2 text-[#8B949E]" />}
+        {isRenaming ? (
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') {
+                setRenameValue(node.name);
+                setIsRenaming(false);
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 min-w-0 bg-[#0D1117] text-xs px-1 py-0 border border-[#58A6FF] rounded outline-none text-white font-mono"
+            aria-label={`Rename ${node.name}`}
+          />
+        ) : (
+          <span className="truncate flex-1" title={node.path}>{node.name}</span>
+        )}
+        {!isRenaming && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setRenameValue(node.name);
+                setIsRenaming(true);
+              }}
+              className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#30363D] opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Rename"
+              aria-label={`Rename ${node.name}`}
+            >
+              <Pencil size={11} />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="p-1 rounded text-[#8B949E] hover:text-[#F85149] hover:bg-[#30363D] opacity-0 group-hover:opacity-100 transition-opacity"
+              title={isFolder ? 'Delete Folder' : 'Delete File'}
+              aria-label={isFolder ? `Delete folder ${node.name}` : `Delete file ${node.name}`}
+            >
+              <Trash2 size={12} />
+            </button>
+          </>
+        )}
       </div>
       {isFolder && isOpen && node.children && (
         <div>

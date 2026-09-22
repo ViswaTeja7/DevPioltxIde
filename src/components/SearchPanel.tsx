@@ -136,7 +136,7 @@ export const SearchPanel = () => {
     let count = 0;
     searchResults.forEach(({ file }) => {
       const content = file.content || '';
-      let newContent = content;
+      let newContent: string;
 
       if (useRegex) {
         try {

@@ -5,15 +5,22 @@ import { AI_MODELS, getModelById } from '../constants/models';
 import { ModelIcon } from './ModelIcon';
 
 export const SettingsPanel = () => {
-  const { llmConfig, updateLLMConfig, selectedModel, selectModel, setIsModelSelectorOpen, refreshProviderModels } = useIDE();
+  const { llmConfig, updateLLMConfig, selectedModel, selectModel, setIsModelSelectorOpen, refreshProviderModels, secretStorage, persistApiKeys, clearApiKeys } = useIDE();
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [providerStatuses, setProviderStatuses] = useState<Record<string, { success: boolean; message: string }>>({});
   const [savedFeedback, setSavedFeedback] = useState(false);
 
-  const handleSaveKeys = () => {
-    updateLLMConfig(prev => ({ ...prev }));
+  const handleSaveKeys = async () => {
+    // The keys are already written through the debounced secure-store effect; this path
+    // exists so the user gets immediate confirmation.
+    await persistApiKeys();
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 2500);
+  };
+
+  const handleClearKeys = async () => {
+    if (!window.confirm('Remove all stored API keys from this device?')) return;
+    await clearApiKeys();
   };
 
   const handleTestProvider = async (provider: 'gemini' | 'openrouter' | 'ollama' | 'groq') => {
@@ -62,6 +69,36 @@ export const SettingsPanel = () => {
         >
           {savedFeedback ? <Check size={12} className="text-white" /> : null}
           {savedFeedback ? 'Saved & Applied!' : 'Save Credentials'}
+        </button>
+      </div>
+
+      {/* Where API keys actually live. Users deserve to know whether they are encrypted
+          at rest by the OS keychain or only kept for this session. */}
+      <div
+        className={`px-4 py-2 border-b border-[#30363D] text-[10px] flex items-start gap-2 ${
+          secretStorage === 'keychain'
+            ? 'bg-[#0F2417] text-[#3FB950]'
+            : secretStorage === 'session'
+              ? 'bg-[#2D2407] text-[#E3B341]'
+              : 'bg-[#2D1113] text-[#F85149]'
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        <ShieldCheck size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <span className="flex-1">
+          {secretStorage === 'keychain'
+            ? 'API keys are encrypted with the OS keychain (DPAPI / Keychain / libsecret) and never written to browser storage.'
+            : secretStorage === 'session'
+              ? 'No desktop keychain available — API keys are kept for this session only and will be cleared when the window closes.'
+              : 'No secure storage is available in this environment, so API keys cannot be persisted.'}
+        </span>
+        <button
+          onClick={handleClearKeys}
+          className="shrink-0 rounded border border-current/30 px-1.5 py-0.5 hover:bg-black/20"
+          title="Remove all stored API keys from this device"
+        >
+          Clear keys
         </button>
       </div>
       

@@ -1,13 +1,19 @@
 node_modules/
-build/
+build/*
+!build/entitlements.mac.plist
+!build/SIGNING.md
 dist/
+dist-electron/
+release/
 coverage/
+test-results/
+playwright-report/
 .DS_Store
 *.log
 .env*
 !.env.example
 
-# This project locks dependencies with Bun (bun.lock). package-lock.json is only
-# generated when installing via npm and must not be committed, or the two lockfiles
-# will drift apart.
-package-lock.json
+# CI runs `npm ci`, which requires a committed lockfile, and the third-party notices
+# script reads it. npm is the single canonical package manager for this project.
+sbom-cyclonedx.json
+
