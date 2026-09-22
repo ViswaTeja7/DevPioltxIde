@@ -7,12 +7,6 @@ export const StatusBar = () => {
   const { activeFileId, openFiles, selectedModel, setIsModelSelectorOpen } = useIDE();
   const activeFile = openFiles.find(f => f.id === activeFileId);
 
-  // The desktop app serves this UI from the local backend on an ephemeral port,
-  // so read the real port rather than assuming a fixed one.
-  const servedPort =
-    window.location.port ||
-    (window.location.protocol === 'https:' ? '443' : '80');
-
   return (
     <div className="h-6 bg-[#21262D] border-t border-[#30363D] text-[#8B949E] flex items-center justify-between px-3 text-[10px] shrink-0 select-none">
       <div className="flex items-center gap-3">
@@ -26,7 +20,7 @@ export const StatusBar = () => {
         </div>
         <div className="flex items-center gap-1 hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
           <RadioTower size={12} />
-          <span>Port: {servedPort}</span>
+          <span>Port: 3000</span>
         </div>
 
         {/* DevPilotX Active Model status bar button */}

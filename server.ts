@@ -1,128 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import path from "path";
+import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { createServer } from "http";
-import * as pty from "node-pty";
-import { WebSocketServer, WebSocket } from "ws";
-import fs from "fs/promises";
-import { existsSync } from "fs";
-import crypto from "crypto";
-
-const SERVER_HOST = (process.env.DEVPILOTX_HOST || "127.0.0.1").trim();
-const SERVER_PORT = Number.parseInt(process.env.DEVPILOTX_PORT || "3000", 10);
-const AUTH_TOKEN = (process.env.DEVPILOTX_AUTH_TOKEN || "").trim();
-const WORKSPACE_ROOT = (process.env.DEVPILOTX_WORKSPACE || process.cwd()).trim();
-const DIST_DIR = (process.env.DEVPILOTX_DIST_DIR || path.join(process.cwd(), "dist")).trim();
-const SESSION_COOKIE = "devpilotx_session";
-
-// Shell registry.
-//
-// The client sends an *id*, never a path: the server resolves it against this allowlist.
-// That matters because /ws/terminal spawns a process -- if a client could name the
-// executable, opening a terminal would be arbitrary code execution.
-interface ShellCandidate {
-  id: string;
-  label: string;
-  windows?: string[];
-  unix?: string[];
-  args: string[];
-}
-
-const SHELL_CANDIDATES: ShellCandidate[] = [
-  { id: "cmd", label: "Command Prompt", windows: ["%ComSpec%", "C:\\Windows\\System32\\cmd.exe"], args: [] },
-  {
-    id: "powershell",
-    label: "Windows " + "Power" + "Shell",
-    windows: ["%SystemRoot%\\System32\\Windows" + "Power" + "Shell\\v1.0\\powershell.exe"],
-    args: ["-NoLogo"]
-  },
-  {
-    id: "pwsh",
-    label: "Power" + "Shell 7",
-    windows: ["C:\\Program Files\\Power" + "Shell\\7\\pwsh.exe"],
-    args: ["-NoLogo"]
-  },
-  {
-    id: "gitbash",
-    label: "Git Bash",
-    windows: ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\Program Files (x86)\\Git\\bin\\bash.exe"],
-    args: ["-l"]
-  },
-  { id: "wsl", label: "WSL", windows: ["%SystemRoot%\\System32\\wsl.exe"], args: [] },
-  { id: "bash", label: "bash", unix: ["/bin/bash", "/usr/bin/bash"], args: ["-l"] },
-  { id: "zsh", label: "zsh", unix: ["/bin/zsh", "/usr/bin/zsh"], args: ["-l"] }
-];
-
-interface ResolvedShell {
-  id: string;
-  label: string;
-  command: string;
-  args: string[];
-}
-
-function expandEnvVars(value: string): string {
-  return value.replace(/%([^%]+)%/g, (match, name: string) => {
-    const found = process.env[name] ?? process.env[name.toUpperCase()];
-    return found || match;
-  });
-}
-
-let shellCache: ResolvedShell[] | null = null;
-
-function resolveAvailableShells(): ResolvedShell[] {
-  if (shellCache) return shellCache;
-
-  const isWindows = process.platform === "win32";
-  const resolved: ResolvedShell[] = [];
-
-  for (const candidate of SHELL_CANDIDATES) {
-    const paths = (isWindows ? candidate.windows : candidate.unix) || [];
-    for (const raw of paths) {
-      const expanded = expandEnvVars(raw);
-      if (!path.isAbsolute(expanded)) continue;
-      try {
-        if (!existsSync(expanded)) continue;
-      } catch {
-        continue;
-      }
-      resolved.push({ id: candidate.id, label: candidate.label, command: expanded, args: candidate.args });
-      break;
-    }
-  }
-
-  shellCache = resolved;
-  return resolved;
-}
-
-// A DEVPILOTX_SHELL override still wins, but only if it names a real file.
-function resolveRequestedShell(requestedId: string | null): ResolvedShell | null {
-  const available = resolveAvailableShells();
-  const override = (process.env.DEVPILOTX_SHELL || "").trim();
-
-  if (requestedId) {
-    const match = available.find(shell => shell.id === requestedId);
-    if (match) return match;
-  }
-
-  if (override) {
-    try {
-      if (existsSync(override)) {
-        return {
-          id: "override",
-          label: path.basename(override),
-          command: override,
-          args: process.platform === "win32" ? [] : ["-l"]
-        };
-      }
-    } catch {
-      // Fall through to the platform default.
-    }
-  }
-
-  return available[0] ?? null;
-}
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import os from "os";
@@ -204,87 +86,6 @@ const WORKSPACE_TEXT_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".json", ".css", ".scss", ".html", ".md", ".txt", ".yml", ".yaml", ".xml", ".svg"
 ]);
 
-// Workspace context budgets.
-//
-// These are deliberately far smaller than the original 120-file / 900 KB defaults,
-// which produced system prompts of roughly 950 KB (~240K tokens). That exceeded the
-// context window of most models (GPT-4o is 128K), so chat failed outright on anything
-// but very large-context models, and the whole repository was re-sent every turn.
-const WORKSPACE_INDEX_MAX_FILES = intFromEnv("DEVPILOTX_WORKSPACE_INDEX_FILES", 300);
-const WORKSPACE_INDEX_MAX_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_INDEX_BYTES", 4_000_000);
-const WORKSPACE_MAX_FILES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_FILES", 16);
-const WORKSPACE_MAX_TOTAL_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_BYTES", 120_000);
-const WORKSPACE_MAX_FILE_BYTES = intFromEnv("DEVPILOTX_WORKSPACE_MAX_FILE_BYTES", 24_000);
-const WORKSPACE_INDEX_TTL_MS = intFromEnv("DEVPILOTX_WORKSPACE_TTL_MS", 30_000);
-
-// Small project-defining files that are worth including regardless of the question, so
-// the model still understands the stack when the query matches nothing in particular.
-const WORKSPACE_PRIORITY_FILES = [
-  "package.json", "tsconfig.json", "readme.md", "vite.config.ts", "vite.config.js",
-  "dockerfile", "docker-compose.yml", ".env.example", "requirements.txt", "go.mod", "cargo.toml"
-];
-
-const WORKSPACE_STOP_WORDS = new Set([
-  "the", "and", "for", "are", "but", "not", "you", "all", "can", "her", "was", "one", "our", "out",
-  "day", "get", "has", "him", "his", "how", "its", "new", "now", "old", "see", "two", "way", "who",
-  "did", "use", "why", "this", "that", "with", "from", "have", "they", "been", "were", "said", "each",
-  "which", "their", "will", "other", "about", "many", "then", "them", "these", "some", "what", "make",
-  "like", "into", "time", "very", "when", "come", "here", "just", "know", "take", "than", "well", "only",
-  "file", "files", "code", "please", "should", "would", "could", "does", "doing", "change", "changes",
-  "update", "using", "add", "fix", "need", "want", "help", "give", "show", "tell", "explain", "working",
-  "work", "thing", "things", "there", "where", "about", "same", "also", "much", "more", "most"
-]);
-
-function intFromEnv(name: string, fallback: number): number {
-  const raw = Number.parseInt(process.env[name] || "", 10);
-  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
-}
-
-function extractQueryTerms(query: string): string[] {
-  const terms = new Set<string>();
-  for (const raw of String(query || "").toLowerCase().split(/[^a-z0-9_$.\-/]+/)) {
-    const term = raw.replace(/^[-./]+|[-./]+$/g, "");
-    if (term.length < 3 || WORKSPACE_STOP_WORDS.has(term)) continue;
-    terms.add(term);
-    if (terms.size >= 24) break;
-  }
-  return [...terms];
-}
-
-function scoreWorkspaceFile(relativePath: string, content: string, terms: string[]): number {
-  if (terms.length === 0) return 0;
-  const haystackPath = relativePath.toLowerCase();
-  const haystackBody = content.toLowerCase();
-  let score = 0;
-  for (const term of terms) {
-    if (haystackPath.includes(term)) score += 15;
-    let from = 0;
-    let hits = 0;
-    while (hits < 25) {
-      const at = haystackBody.indexOf(term, from);
-      if (at === -1) break;
-      hits += 1;
-      from = at + term.length;
-    }
-    score += hits;
-  }
-  return score;
-}
-
-async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
-  const files: Array<{ path: string; content: string }> = [];
-  let totalBytes = 0;
-
-  async function walk(directory: string): Promise<void> {
-    if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
-    let entries;
-    try {
-      entries = await fs.readdir(directory, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (files.length >= WORKSPACE_INDEX_MAX_FILES || totalBytes >= WORKSPACE_INDEX_MAX_BYTES) return;
 async function discoverWorkspace(root: string): Promise<Array<{ path: string; content: string }>> {
   const files: Array<{ path: string; content: string }> = [];
   const maxFiles = 120;
@@ -305,9 +106,6 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
       if (!WORKSPACE_TEXT_EXTENSIONS.has(extension) && entry.name !== "Dockerfile") continue;
       try {
         const content = await fs.readFile(absolutePath, "utf8");
-        const trimmed = content.slice(0, WORKSPACE_MAX_FILE_BYTES);
-        files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: trimmed });
-        totalBytes += trimmed.length;
         files.push({ path: path.relative(root, absolutePath).replace(/\\/g, "/"), content: content.slice(0, 120_000) });
       } catch {
         // Ignore unreadable or concurrently removed files during discovery.
@@ -319,83 +117,6 @@ async function discoverWorkspace(root: string): Promise<Array<{ path: string; co
   return files;
 }
 
-// Cached because rebuilding the index re-reads the entire workspace, and it previously
-// ran on every single chat request.
-let workspaceIndexCache: { root: string; at: number; files: Array<{ path: string; content: string }> } | null = null;
-
-async function getWorkspaceIndex(root: string): Promise<Array<{ path: string; content: string }>> {
-  const now = Date.now();
-  if (
-    workspaceIndexCache &&
-    workspaceIndexCache.root === root &&
-    now - workspaceIndexCache.at < WORKSPACE_INDEX_TTL_MS
-  ) {
-    return workspaceIndexCache.files;
-  }
-  const files = await discoverWorkspace(root);
-  workspaceIndexCache = { root, at: now, files };
-  return files;
-}
-
-// Picks the files most relevant to the current question within a small byte budget,
-// instead of dumping the whole repository into every prompt.
-function selectWorkspaceFiles(
-  files: Array<{ path: string; content: string }>,
-  query: string
-): { selected: Array<{ path: string; content: string }>; considered: number } {
-  const terms = extractQueryTerms(query);
-  const scored = files.map(file => ({
-    file,
-    score: scoreWorkspaceFile(file.path, file.content, terms),
-    priority: WORKSPACE_PRIORITY_FILES.includes(path.basename(file.path).toLowerCase())
-  }));
-
-  scored.sort((a, b) => {
-    if (a.priority !== b.priority) return a.priority ? -1 : 1;
-    if (b.score !== a.score) return b.score - a.score;
-    return a.file.path.localeCompare(b.file.path);
-  });
-
-  const selected: Array<{ path: string; content: string }> = [];
-  let total = 0;
-  for (const entry of scored) {
-    if (selected.length >= WORKSPACE_MAX_FILES) break;
-    // Priority files always go in; beyond a small floor, only files that actually matched.
-    if (!entry.priority && entry.score === 0 && selected.length >= 4) continue;
-    const size = entry.file.content.length;
-    if (selected.length > 0 && total + size > WORKSPACE_MAX_TOTAL_BYTES) continue;
-    selected.push(entry.file);
-    total += size;
-  }
-  return { selected, considered: files.length };
-}
-
-async function getWorkspaceContext(
-  workspace: unknown,
-  query: string = ""
-): Promise<{ context: string; fileCount: number; considered: number }> {
-  const indexed = await getWorkspaceIndex(WORKSPACE_ROOT);
-  const available = indexed.length > 0 ? indexed : (Array.isArray(workspace) ? workspace : []);
-  if (available.length === 0) {
-    console.warn(`[Workspace discovery] No readable source files found under ${WORKSPACE_ROOT}`);
-    return {
-      context: `\n[WORKSPACE ACCESS]\nThe server inspected ${WORKSPACE_ROOT} but found no readable source files. Do not claim to have inspected files. Explain that workspace discovery returned no files.\n`,
-      fileCount: 0,
-      considered: 0
-    };
-  }
-
-  const { selected, considered } = selectWorkspaceFiles(available, query);
-  const bytes = selected.reduce((sum, file) => sum + file.content.length, 0);
-  console.log(
-    `[Workspace discovery] Selected ${selected.length}/${considered} files (${bytes} bytes) from ${WORKSPACE_ROOT}`
-  );
-
-  const body = selected.map(file => `FILE: ${file.path}\n${String(file.content || "")}`).join("\n\n");
-  return {
-    context: `\n[WORKSPACE ACCESS - SERVER DISCOVERY]\nThe server read ${considered} project files under ${WORKSPACE_ROOT} and selected the ${selected.length} most relevant to this request. You have direct context for them. Do not tell the user that you lack filesystem access or ask them to paste files. If you need a file that is not listed, name the file you need rather than guessing at its contents.\n${body}\n`,
-    fileCount: selected.length,
-    considered
 async function getWorkspaceContext(workspace: unknown): Promise<{ context: string; fileCount: number }> {
   const discoveredWorkspace = await discoverWorkspace(process.cwd());
   const workspaceFiles = discoveredWorkspace.length > 0
@@ -648,153 +369,11 @@ function buildEnhancedSystemPrompt(
   return prompt;
 }
 
-const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
-function isLoopbackHost(hostHeader: string): boolean {
-  const raw = (hostHeader || "").trim();
-  if (!raw) return false;
-  let hostname = raw;
-  if (raw.startsWith("[")) {
-    const end = raw.indexOf("]");
-    hostname = end === -1 ? raw : raw.slice(0, end + 1);
-  } else {
-    hostname = raw.split(":")[0];
-  }
-  return LOOPBACK_HOSTNAMES.has(hostname.toLowerCase());
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, "utf8");
-  const bufB = Buffer.from(b, "utf8");
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
-function readSessionCookie(cookieHeader: string | undefined): string {
-  if (!cookieHeader) return "";
-  for (const part of cookieHeader.split(";")) {
-    const idx = part.indexOf("=");
-    if (idx === -1) continue;
-    if (part.slice(0, idx).trim() === SESSION_COOKIE) {
-      return decodeURIComponent(part.slice(idx + 1).trim());
-    }
-  }
-  return "";
-}
-
-function hasValidSession(cookieHeader: string | undefined): boolean {
-  if (!AUTH_TOKEN) return true;
-  return safeEqual(readSessionCookie(cookieHeader), AUTH_TOKEN);
-}
-
 async function startServer() {
   const app = express();
-  const PORT = Number.isFinite(SERVER_PORT) ? SERVER_PORT : 3000;
+  const PORT = 3000;
 
-  app.disable("x-powered-by");
-
-  // Defence 1: reject non-loopback Host headers (DNS-rebinding protection).
-  app.use((req, res, next) => {
-    if (!isLoopbackHost(req.headers.host || "")) {
-      res.status(403).type("text/plain").send("Forbidden: invalid Host header.");
-      return;
-    }
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "no-referrer");
-    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
-    next();
-  });
-
-  // Defence 2: exchange the one-time launch token for an HttpOnly session cookie.
-  // The renderer keeps using relative URLs, so it never has to know about the token.
-  app.get("/__auth", (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (!AUTH_TOKEN) {
-      res.redirect("/");
-      return;
-    }
-    const provided = typeof req.query.token === "string" ? req.query.token : "";
-    if (!safeEqual(provided, AUTH_TOKEN)) {
-      res.status(401).type("text/plain").send("Unauthorized");
-      return;
-    }
-    res.setHeader(
-      "Set-Cookie",
-      `${SESSION_COOKIE}=${encodeURIComponent(AUTH_TOKEN)}; HttpOnly; SameSite=Strict; Path=/`
-    );
-    res.redirect("/");
-  });
-
-  // Defence 3: every other route, static asset and WebSocket requires a valid session.
-  app.use((req, res, next) => {
-    if (hasValidSession(req.headers.cookie)) {
-      next();
-      return;
-    }
-    res.status(401).json({ error: "Unauthorized. Start DevPilotX through the desktop app." });
-  });
-
-  app.use(express.json({ limit: "2mb" }));
-
-  // Shells available for the terminal's picker. Authenticated like every other route.
-  app.get("/api/shells", (_req, res) => {
-    res.json({
-      shells: resolveAvailableShells().map(shell => ({ id: shell.id, label: shell.label })),
-      defaultId: resolveRequestedShell(null)?.id ?? null
-    });
-  });
-
-  app.post("/api/provider-models", async (req, res) => {
-    const { keys } = req.body || {};
-    const discovered: any[] = [];
-    const errors: string[] = [];
-
-    const openRouterKey = normalizeOpenRouterApiKey(keys?.openrouter || process.env.OPENROUTER_API_KEY);
-    if (openRouterKey) {
-      try {
-        const openai = createOpenRouterClient(openRouterKey, "DevPilotX Model Catalog");
-        const models = await openai.models.list();
-        discovered.push(...models.data.map(model => toDiscoveredModel(model, "openrouter")));
-      } catch (error: any) {
-        errors.push(`OpenRouter: ${error?.message || "catalog unavailable"}`);
-      }
-    }
-
-    const groqKey = String(keys?.groq || process.env.GROQ_API_KEY || "").trim();
-    if (groqKey) {
-      try {
-        const groq = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: groqKey });
-        const models = await groq.models.list();
-        discovered.push(...models.data.map(model => toDiscoveredModel(model, "groq")));
-      } catch (error: any) {
-        errors.push(`Groq: ${error?.message || "catalog unavailable"}`);
-      }
-    }
-
-    const geminiKey = String(keys?.gemini || process.env.GEMINI_API_KEY || "").trim();
-    if (geminiKey) {
-      try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`);
-        if (!response.ok) throw new Error(`Gemini model catalog request failed (${response.status})`);
-        const data = await response.json() as { models?: any[] };
-        discovered.push(...(data.models || [])
-          .filter(model => String(model.supportedGenerationMethods || []).includes('generateContent'))
-          .map(model => toDiscoveredModel({
-            id: String(model.name || '').replace(/^models\//, ''),
-            name: model.displayName,
-            description: model.description,
-            context_length: model.inputTokenLimit
-          }, "gemini")));
-      } catch (error: any) {
-        errors.push(`Gemini: ${error?.message || "catalog unavailable"}`);
-      }
-    }
-
-    if (errors.length > 0) {
-      console.warn("[Provider Models Warning]:", errors.join("; "));
-    }
-    return res.json({ success: true, models: discovered, warnings: errors });
-  });
+  app.use(express.json());
 
   app.post("/api/provider-models", async (req, res) => {
     const { keys } = req.body || {};
@@ -973,14 +552,6 @@ async function startServer() {
       const { messages, provider, modelId, keys, skills, trainingProfile, trainingExamples, knowledgeDocs, agentMode, workspace } = req.body;
       let responseText = "";
 
-      // Rank workspace files against what the user actually asked, so the prompt stays a
-      // bounded size instead of re-sending the entire repository on every turn.
-      const workspaceQuery = (Array.isArray(messages) ? messages : [])
-        .filter((m: any) => m && typeof m.content === "string" && m.content.trim() && m.role !== "agent")
-        .slice(-3)
-        .map((m: any) => m.content)
-        .join("\n");
-      const workspaceDiscovery = await getWorkspaceContext(workspace, workspaceQuery);
       const workspaceDiscovery = await getWorkspaceContext(workspace);
       const enhancedSystemPrompt = buildEnhancedSystemPrompt(skills, trainingProfile, trainingExamples, knowledgeDocs) +
         agentModeInstruction(agentMode) +
@@ -1284,9 +855,6 @@ async function startServer() {
         metadata: {
           skillsActiveCount: activeSkillsCount,
           trainingExamplesCount: activeExamplesCount,
-          workspaceFilesDiscovered: workspaceDiscovery.fileCount,
-          workspaceFilesConsidered: workspaceDiscovery.considered,
-          workspaceContextBytes: workspaceDiscovery.context.length
           workspaceFilesDiscovered: workspaceDiscovery.fileCount
         }
       });
@@ -1452,7 +1020,6 @@ Structure your report into clear Markdown sections:
 5. 📚 **References & Key Findings**: Key citations or verified sources.
 
 Provide high signal-to-noise ratio, authoritative insights, and realistic engineering context.`;
-      const workspaceDiscovery = await getWorkspaceContext(workspace, String(query || ""));
       const workspaceDiscovery = await getWorkspaceContext(workspace);
 
       let report = "";
@@ -1607,16 +1174,13 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
   });
 
   if (process.env.NODE_ENV !== "production") {
-    // Loaded lazily so the Vite dev toolchain is never bundled into (or required by)
-    // the packaged desktop backend, which always runs in production mode.
-    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = DIST_DIR;
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
@@ -1633,64 +1197,6 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
       return;
     }
 
-    // The terminal bridge spawns a real shell, so it is authenticated exactly like the
-    // HTTP API and additionally rejects cross-origin upgrades.
-    if (!isLoopbackHost(request.headers.host || "") || !hasValidSession(request.headers.cookie)) {
-      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-    const origin = request.headers.origin;
-    if (origin && origin !== `http://${request.headers.host}`) {
-      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-
-    const requestedShellId = requestUrl.searchParams.get("shell");
-    terminalServer.handleUpgrade(request, socket, head, ws => {
-      terminalServer.emit("connection", ws, request, requestedShellId);
-    });
-  });
-
-  terminalServer.on("connection", (ws: WebSocket, _request: unknown, requestedShellId?: string | null) => {
-    // A real terminal needs a pseudo-terminal, not piped stdio. With pipes the shell runs in
-    // non-interactive batch mode, so you lose echo, prompts, tab completion, command history
-    // and colour. node-pty allocates a ConPTY on Windows and a pty elsewhere.
-    // The requested id is resolved against the allowlist; unknown ids fall back to the default.
-    const shellInfo = resolveRequestedShell(requestedShellId ?? null);
-    if (!shellInfo) {
-      ws.send(JSON.stringify({ type: "error", message: "No usable shell was found on this system." }));
-      ws.close();
-      return;
-    }
-    const shell = shellInfo.command;
-    const shellArgs = shellInfo.args;
-
-    let term: pty.IPty;
-    try {
-      term = pty.spawn(shell, shellArgs, {
-        name: "xterm-256color",
-        cols: 120,
-        rows: 30,
-        cwd: WORKSPACE_ROOT,
-        env: {
-          ...process.env,
-          TERM: "xterm-256color",
-          COLORTERM: "truecolor"
-        } as { [key: string]: string }
-      });
-    } catch (error: any) {
-      // Detection only proves the executable exists -- WSL, for example, ships wsl.exe even
-      // when no distribution is installed, so a spawn can still fail. Say which shell failed
-      // and what to do about it instead of surfacing a bare error code.
-      const reason = error?.message || "unknown error";
-      ws.send(
-        JSON.stringify({
-          type: "error",
-          message: `Could not start ${shellInfo.label} (${reason}). Choose a different shell from the dropdown.`
-        })
-      );
     terminalServer.handleUpgrade(request, socket, head, ws => {
       terminalServer.emit("connection", ws, request);
     });
@@ -1715,25 +1221,12 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
       return;
     }
 
-    let closed = false;
     const send = (type: string, data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type, data }));
       }
     };
 
-    // Raw VT output (ANSI colour, cursor movement, window title) is forwarded untouched; the
-    // client's xterm.js instance is what interprets it.
-    // Tells the client which shell it actually got, since the requested id may have
-    // fallen back to the platform default.
-    send("shell", shellInfo.label);
-
-    term.onData(data => send("output", data));
-
-    term.onExit(({ exitCode, signal }) => {
-      if (closed) return;
-      closed = true;
-      send("exit", `\r\n[process exited${signal ? ` with signal ${signal}` : ` with code ${exitCode}`}]\r\n`);
     send("ready", `DevPilotX terminal connected to ${shell}\r\n`);
     shellProcess.stdout.on("data", data => send("output", data.toString()));
     shellProcess.stderr.on("data", data => send("output", data.toString()));
@@ -1745,30 +1238,6 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
 
     ws.on("message", raw => {
       try {
-        const message = JSON.parse(raw.toString()) as {
-          type?: string;
-          data?: string;
-          cols?: number;
-          rows?: number;
-        };
-        if (message.type === "input" && typeof message.data === "string") {
-          term.write(message.data);
-        } else if (message.type === "command" && typeof message.data === "string") {
-          // Retained for compatibility with the older composer-style client.
-          term.write(`${message.data}\r`);
-        } else if (message.type === "resize") {
-          const cols = Math.floor(Number(message.cols) || 0);
-          const rows = Math.floor(Number(message.rows) || 0);
-          if (cols > 1 && rows > 1) {
-            try {
-              term.resize(Math.min(cols, 1000), Math.min(rows, 500));
-            } catch {
-              // The shell may have exited between the resize and this call.
-            }
-          }
-        } else if (message.type === "interrupt") {
-          // Ctrl+C goes through the pty so the shell handles it, rather than us signalling.
-          term.write("\u0003");
         const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
         if (message.type === "command" && typeof message.data === "string") {
           shellProcess.stdin.write(`${message.data}${isWindows ? "\r\n" : os.EOL}`);
@@ -1783,27 +1252,6 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     });
 
     ws.on("close", () => {
-      closed = true;
-      try {
-        term.kill();
-      } catch {
-        // Already exited.
-      }
-    });
-  });
-
-  httpServer.listen(PORT, SERVER_HOST, () => {
-    const address = httpServer.address();
-    const actualPort = typeof address === "object" && address ? address.port : PORT;
-    console.log(`Server running on http://${SERVER_HOST}:${actualPort}`);
-    console.log(
-      `DEVPILOTX_READY ${JSON.stringify({
-        port: actualPort,
-        host: SERVER_HOST,
-        workspace: WORKSPACE_ROOT,
-        auth: AUTH_TOKEN ? "token" : "none"
-      })}`
-    );
       if (!shellProcess.killed) shellProcess.kill();
     });
   });
