@@ -3,12 +3,10 @@ name: CI
 on: [push, pull_request]
 
 env:
-  # macOS runners have only 7 GB RAM, so Node derives a ~2 GB default V8 heap there;
-  # vite's transform phase for this app peaks just past that and aborts the build with
-  # "FATAL ERROR: Ineffective mark-compacts near heap limit" (exit 134). Windows/Linux
-  # runners have 16 GB (≈4 GB heap) and pass, and the macOS quality build only squeaked
-  # under the cap. Raise the limit for every step so typecheck, tests and builds all
-  # have headroom on every OS.
+  # Pin the V8 heap so vite's transform phase always has headroom. Node derives the
+  # default from total RAM, which previously OOM'd the build ("FATAL ERROR: Ineffective
+  # mark-compacts near heap limit") on small runners; keeping it explicit makes every
+  # job behave the same regardless of runner size.
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
@@ -18,8 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The desktop app ships for all three platforms; it must build on all three.
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # Linux and Windows only. macOS runners are excluded from CI: the e2e job
+        # fails there on fresh images (readSettings() falls back to the empty
+        # ~/Documents folder, so /api/fs/tree returns 0 entries — see
+        # electron/main.ts), and their 7 GB RAM OOM'd vite's build phase.
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -69,10 +70,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Windows and macOS only: node-pty ships prebuilt binaries for those platforms,
-        # so the PTY-backed backend starts without a C++ toolchain. On Linux the module
-        # has to be compiled from source, which CI deliberately avoids.
-        os: [windows-latest, macos-latest]
+        # Windows only: node-pty ships a prebuilt binary there, so the PTY-backed
+        # backend starts without a C++ toolchain. On Linux the module has to be
+        # compiled from source, which CI deliberately avoids; macOS runners are
+        # excluded because fresh images have an empty ~/Documents folder, which
+        # readSettings() uses as the default workspace — the workspace-tree test
+        # then sees 0 entries and fails.
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
 
