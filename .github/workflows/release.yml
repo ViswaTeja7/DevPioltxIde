@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write # required to create the GitHub Release the updater reads
 
+env:
+  # Same ~2 GB default V8 heap on 7 GB macOS runners as in CI; raise it so
+  # `npm run build`'s vite transform phase does not OOM during release builds.
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   release:
     name: Build & publish (${{ matrix.os }})
