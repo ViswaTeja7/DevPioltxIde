@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sparkles, Brain, Bot, Zap, Terminal, Code2, Flame, Cpu, Eye, Shield, Activity, Image as ImageIcon, Palette, Wand2 } from 'lucide-react';
-import { AIModel } from '../types';
+import { AIModel } from '../../types';
 
 interface ModelIconProps {
   type: AIModel['iconType'] | string;

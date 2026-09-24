@@ -17,7 +17,7 @@ npm run electron   # build + launch the desktop app
 For renderer-only iteration:
 
 ```bash
-npm run dev        # tsx server.ts on http://127.0.0.1:3000
+npm run dev        # tsx server/server.ts on http://127.0.0.1:3000
 ```
 
 ## Quality gates (must pass before merge)
@@ -66,7 +66,7 @@ and falls back to English.
 - Interactive collections use the matching ARIA pattern (the panel and terminal tabs
   implement `tablist`/`tab` with arrow-key navigation).
 - Announce asynchronous failures through an `aria-live` region — see
-  [`ErrorToast.tsx`](src/components/ErrorToast.tsx).
+  [`ErrorToast.tsx`](src/components/common/ErrorToast.tsx).
 - Never remove focus outlines; the global `:focus-visible` style in `src/index.css`
   covers keyboard users.
 

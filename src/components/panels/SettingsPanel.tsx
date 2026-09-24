@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import { Key, Server, Sparkles, Check, ChevronRight, ShieldCheck, Zap, Brain, Sliders, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
-import { AI_MODELS, getModelById } from '../constants/models';
-import { ModelIcon } from './ModelIcon';
+import { AI_MODELS, getModelById } from '../../constants/models';
+import { ModelIcon } from '../ai/ModelIcon';
 
 export const SettingsPanel = () => {
   const { llmConfig, updateLLMConfig, selectedModel, selectModel, setIsModelSelectorOpen, refreshProviderModels, secretStorage, persistApiKeys, clearApiKeys } = useIDE();

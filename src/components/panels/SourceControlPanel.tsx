@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import { 
   GitBranch, 
   GitCommit, 

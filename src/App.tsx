@@ -4,7 +4,7 @@
  */
 
 import { IDEProvider } from './context/IDEContext';
-import { MainLayout } from './components/MainLayout';
+import { MainLayout } from './components/layout/MainLayout';
 
 export default function App() {
   return (

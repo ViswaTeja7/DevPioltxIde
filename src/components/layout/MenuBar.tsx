@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import {
   FileText,
   Plus,
@@ -32,7 +32,7 @@ import {
   ChevronRight,
   ExternalLink
 } from 'lucide-react';
-import { ActivityTab, ActiveView, PanelTab } from '../types';
+import { ActivityTab, ActiveView, PanelTab } from '../../types';
 
 export type MenuCategory = 'File' | 'Edit' | 'Selection' | 'View' | 'Go' | 'Run' | 'Terminal' | 'Help';
 

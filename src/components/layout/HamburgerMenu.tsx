@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import {
   FileCode,
   Folder,
@@ -26,7 +26,7 @@ import {
   BrainCircuit,
   ImageIcon
 } from 'lucide-react';
-import { ModelIcon } from './ModelIcon';
+import { ModelIcon } from '../ai/ModelIcon';
 
 interface HamburgerMenuProps {
   isOpen: boolean;

@@ -14,7 +14,7 @@ import {
   BrainCircuit,
   X
 } from 'lucide-react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 
 interface ExtensionItem {
   id: string;

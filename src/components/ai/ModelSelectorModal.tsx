@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useIDE } from '../context/IDEContext';
-import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { useIDE } from '../../context/IDEContext';
+import { getModelById, DEFAULT_MODEL_ID } from '../../constants/models';
 import { ModelIcon } from './ModelIcon';
-import { AIModel } from '../types';
+import { AIModel } from '../../types';
 import { Search, Check, Sparkles, X, Brain, Zap, Key, ShieldCheck, Cpu, Terminal, ArrowRight, ExternalLink, Gift, Layers } from 'lucide-react';
 
 interface ModelSelectorModalProps {

@@ -15,8 +15,8 @@ import {
   RotateCcw,
   GraduationCap
 } from 'lucide-react';
-import { useIDE } from '../context/IDEContext';
-import { SkillCategory, AgentSkill } from '../types';
+import { useIDE } from '../../context/IDEContext';
+import { SkillCategory, AgentSkill } from '../../types';
 
 export const SkillsSidebarPanel = () => {
   const { 

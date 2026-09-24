@@ -1,7 +1,7 @@
 import React from 'react';
 import { Files, Search, GitBranch, Bug, Blocks, Sparkles, Settings, Wand2, BrainCircuit } from 'lucide-react';
-import { useIDE } from '../context/IDEContext';
-import { ActivityTab } from '../types';
+import { useIDE } from '../../context/IDEContext';
+import { ActivityTab } from '../../types';
 
 export const ActivityBar = () => {
   const { activeActivity, setActiveActivity, activeView, setActiveView } = useIDE();

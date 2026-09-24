@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import { 
   Search, 
   Replace, 
@@ -14,7 +14,7 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
-import { FileNode } from '../types';
+import { FileNode } from '../../types';
 
 export const SearchPanel = () => {
   const { fileTree, openFile, updateFileContent } = useIDE();

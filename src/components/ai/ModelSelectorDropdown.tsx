@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useIDE } from '../context/IDEContext';
-import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { useIDE } from '../../context/IDEContext';
+import { getModelById, DEFAULT_MODEL_ID } from '../../constants/models';
 import { ModelIcon } from './ModelIcon';
-import { AIModel } from '../types';
+import { AIModel } from '../../types';
 import { Search, Check, ChevronDown, Sparkles, Key, ExternalLink, Zap, Brain, SlidersHorizontal, Info, Gift } from 'lucide-react';
 
 interface ModelSelectorDropdownProps {

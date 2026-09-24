@@ -29,8 +29,8 @@ import {
   X,
   Play
 } from 'lucide-react';
-import { useIDE } from '../context/IDEContext';
-import { AgentSkill, SkillCategory, TrainingExample, KnowledgeDoc } from '../types';
+import { useIDE } from '../../context/IDEContext';
+import { AgentSkill, SkillCategory, TrainingExample, KnowledgeDoc } from '../../types';
 
 type StudioTab = 'skills' | 'training' | 'knowledge' | 'sandbox';
 

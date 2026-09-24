@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import { X, FileCode, FileJson, File, FileText, FolderOpen } from 'lucide-react';
 import Editor, { useMonaco } from '@monaco-editor/react';
-import { FileNode } from '../types';
-import { getLanguageFromName } from '../lib/language';
+import { FileNode } from '../../types';
+import { getLanguageFromName } from '../../lib/language';
 
 export const EditorArea = () => {
   const { openFiles, activeFileId, setActiveFileId, closeFile, updateFileContent, createNewFile, addFolderToTree } = useIDE();

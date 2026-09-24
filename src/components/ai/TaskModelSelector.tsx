@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, Sparkles, Check, Image as ImageIcon, Zap, Filter } from 'lucide-react';
-import { AI_MODELS, getModelById, getImageModels, getTextModels } from '../constants/models';
-import { AIModel, TaskType } from '../types';
+import { AI_MODELS, getModelById, getImageModels, getTextModels } from '../../constants/models';
+import { AIModel, TaskType } from '../../types';
 import { ModelIcon } from './ModelIcon';
 
 interface TaskModelSelectorProps {

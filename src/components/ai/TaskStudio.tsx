@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useIDE } from '../context/IDEContext';
-import { TaskType, TaskChatMessage } from '../types';
+import { useIDE } from '../../context/IDEContext';
+import { TaskType, TaskChatMessage } from '../../types';
 import { TaskModelSelector } from './TaskModelSelector';
 import { ModelIcon } from './ModelIcon';
-import { DEFAULT_MODEL_ID, DEFAULT_IMAGE_MODEL_ID, getModelById } from '../constants/models';
+import { DEFAULT_MODEL_ID, DEFAULT_IMAGE_MODEL_ID, getModelById } from '../../constants/models';
 import {
   Image as ImageIcon,
   Search,

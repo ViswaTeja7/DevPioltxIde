@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import {
   ChevronRight,
   ChevronDown,
@@ -17,7 +17,7 @@ import {
   Pencil,
   Trash2
 } from 'lucide-react';
-import { FileNode } from '../types';
+import { FileNode } from '../../types';
 
 export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
   const { fileTree, createNewFile, createFolder, refreshFileTree, workspaceTruncated } = useIDE();

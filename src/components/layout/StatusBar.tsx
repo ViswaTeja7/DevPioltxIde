@@ -1,7 +1,7 @@
 import React from 'react';
 import { GitBranch, XCircle, AlertTriangle, RadioTower, Bell, Sparkles } from 'lucide-react';
-import { useIDE } from '../context/IDEContext';
-import { ModelIcon } from './ModelIcon';
+import { useIDE } from '../../context/IDEContext';
+import { ModelIcon } from '../ai/ModelIcon';
 
 export const StatusBar = () => {
   const { activeFileId, openFiles, selectedModel, setIsModelSelectorOpen } = useIDE();

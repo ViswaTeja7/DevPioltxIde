@@ -1,7 +1,7 @@
 import React from 'react';
 import { ClipboardList, MessageCircle, Bot, Rocket } from 'lucide-react';
-import { AgentMode } from '../types';
-import { useIDE } from '../context/IDEContext';
+import { AgentMode } from '../../types';
+import { useIDE } from '../../context/IDEContext';
 
 const modes: { id: AgentMode; label: string; description: string; icon: React.ElementType }[] = [
   { id: 'plan', label: 'Plan', description: 'Analyze and propose steps before doing work', icon: ClipboardList },

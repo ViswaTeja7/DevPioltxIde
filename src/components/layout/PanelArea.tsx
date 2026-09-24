@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useIDE } from '../context/IDEContext';
-import { PanelTab } from '../types';
+import { useIDE } from '../../context/IDEContext';
+import { PanelTab } from '../../types';
 import { X } from 'lucide-react';
-import { TerminalPanel } from './TerminalPanel';
+import { TerminalPanel } from '../terminal/TerminalPanel';
 
 const PANEL_HEIGHT_KEY = 'devpilotx_panel_height';
 const MIN_PANEL_HEIGHT = 120;

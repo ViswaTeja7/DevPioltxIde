@@ -1,14 +1,14 @@
 import React from 'react';
-import { useIDE } from '../context/IDEContext';
-import { RepoTree } from './RepoTree';
-import { SearchPanel } from './SearchPanel';
-import { SourceControlPanel } from './SourceControlPanel';
-import { DebugPanel } from './DebugPanel';
-import { ExtensionsPanel } from './ExtensionsPanel';
-import { AIAssistant } from './AIAssistant';
-import { SettingsPanel } from './SettingsPanel';
-import { TaskStudio } from './TaskStudio';
-import { SkillsSidebarPanel } from './SkillsSidebarPanel';
+import { useIDE } from '../../context/IDEContext';
+import { RepoTree } from '../panels/RepoTree';
+import { SearchPanel } from '../panels/SearchPanel';
+import { SourceControlPanel } from '../panels/SourceControlPanel';
+import { DebugPanel } from '../panels/DebugPanel';
+import { ExtensionsPanel } from '../panels/ExtensionsPanel';
+import { AIAssistant } from '../ai/AIAssistant';
+import { SettingsPanel } from '../panels/SettingsPanel';
+import { TaskStudio } from '../ai/TaskStudio';
+import { SkillsSidebarPanel } from '../panels/SkillsSidebarPanel';
 
 export const Sidebar = () => {
   const { activeActivity, lastActiveActivity } = useIDE();

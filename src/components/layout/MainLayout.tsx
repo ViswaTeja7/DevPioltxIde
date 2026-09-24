@@ -2,15 +2,15 @@ import React, { useEffect } from 'react';
 import { TopBar } from './TopBar';
 import { ActivityBar } from './ActivityBar';
 import { Sidebar } from './Sidebar';
-import { EditorArea } from './EditorArea';
-import { Dashboard } from './Dashboard';
-import { TaskStudio } from './TaskStudio';
-import { AgentTrainingStudio } from './AgentTrainingStudio';
+import { EditorArea } from '../editor/EditorArea';
+import { Dashboard } from '../panels/Dashboard';
+import { TaskStudio } from '../ai/TaskStudio';
+import { AgentTrainingStudio } from '../ai/AgentTrainingStudio';
 import { PanelArea } from './PanelArea';
 import { StatusBar } from './StatusBar';
-import { ErrorToast } from './ErrorToast';
-import { ModelSelectorModal } from './ModelSelectorModal';
-import { useIDE } from '../context/IDEContext';
+import { ErrorToast } from '../common/ErrorToast';
+import { ModelSelectorModal } from '../ai/ModelSelectorModal';
+import { useIDE } from '../../context/IDEContext';
 
 export const MainLayout = () => {
   const {

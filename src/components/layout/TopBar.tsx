@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, Play, Settings, CloudLightning, LayoutDashboard, Code, Sparkles, X, Wand2, BrainCircuit } from 'lucide-react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import { HamburgerMenu } from './HamburgerMenu';
 import { MenuBar } from './MenuBar';
-import { ModelIcon } from './ModelIcon';
+import { ModelIcon } from '../ai/ModelIcon';
 
 export const TopBar = () => {
   const {

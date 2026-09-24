@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useIDE } from '../context/IDEContext';
+import { useIDE } from '../../context/IDEContext';
 import { Send, Settings, Copy, Check, BrainCircuit, GraduationCap } from 'lucide-react';
 import { ModelSelectorDropdown } from './ModelSelectorDropdown';
 import { ModelIcon } from './ModelIcon';
-import { getModelById, DEFAULT_MODEL_ID } from '../constants/models';
+import { getModelById, DEFAULT_MODEL_ID } from '../../constants/models';
 import { AgentModeSelector } from './AgentModeSelector';
 
 // Self-learning used to require a human clicking "save to training", so almost nothing was
