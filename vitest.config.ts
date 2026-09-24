@@ -3,13 +3,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}', 'electron/**/*.test.ts'],
+    include: ['web/src/**/*.test.{ts,tsx}', 'electron/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
       // Coverage is scoped to the pure, unit-testable libraries for now. Thresholds
       // ratchet up as suites grow to cover components and the server.
-      include: ['src/lib/**/*.ts'],
+      include: ['web/src/lib/**/*.ts'],
       thresholds: {
         statements: 80,
         branches: 80,

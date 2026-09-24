@@ -121,7 +121,7 @@ and attaches the update metadata (`latest.yml`, blockmaps) that the in-app
 - Keyboard-navigable tablists, `aria-label`s on icon controls, a global `:focus-visible`
   outline, `prefers-reduced-motion` support and a skip link.
 - Screen-reader announcements for filesystem failures via an `aria-live` region.
-- UI strings resolve through `react-i18next` (`src/i18n/`); the OS locale is selected
+- UI strings resolve through `react-i18next` (`web/src/i18n/`); the OS locale is selected
   automatically with English as the fallback.
 
 

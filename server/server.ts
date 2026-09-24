@@ -2125,6 +2125,7 @@ Provide high signal-to-noise ratio, authoritative insights, and realistic engine
     // the packaged desktop backend, which always runs in production mode.
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
+      root: path.resolve(process.cwd(), "web"),
       server: { middlewareMode: true },
       appType: "spa",
     });

@@ -26,7 +26,7 @@ npm run dev        # tsx server/server.ts on http://127.0.0.1:3000
 |---|---|
 | `npm run lint` | TypeScript typecheck (renderer + electron configs) |
 | `npm run lint:eslint` | ESLint (style/rules; warnings are being ratcheted to errors) |
-| `npm test` / `npm run test:coverage` | Vitest unit tests; coverage thresholds enforced on `src/lib` |
+| `npm test` / `npm run test:coverage` | Vitest unit tests; coverage thresholds enforced on `web/src/lib` |
 | `npm run test:e2e` | Playwright smoke tests that launch the real Electron app (requires `npm run build` first) |
 | `npm run build` | Production build (renderer + server bundle + electron) |
 | `npm run format:check` | Prettier formatting |
@@ -39,7 +39,7 @@ and the end-to-end suite on Windows and macOS.
 ## Conventions
 
 - **TypeScript strict** everywhere; no new `any` without a comment explaining why.
-- Pure logic belongs in `src/lib/` (unit-tested, no DOM/React dependencies).
+- Pure logic belongs in `web/src/lib/` (unit-tested, no DOM/React dependencies).
 - Renderer ↔ backend communication goes through the Express API (`/api/*`) or the
   terminal WebSocket; the renderer never touches Node APIs directly.
 - Every new `/api/fs`-style route must resolve paths through `resolveWorkspacePath`.
@@ -55,9 +55,9 @@ const { t } = useTranslation();
 return <button title={t('terminal.newTab')}>…</button>;
 ```
 
-Add keys to [`src/i18n/locales/en.ts`](src/i18n/locales/en.ts). To add a language, create
+Add keys to [`web/src/i18n/locales/en.ts`](web/src/i18n/locales/en.ts). To add a language, create
 a sibling catalogue with the same key shape and register it in
-[`src/i18n/index.ts`](src/i18n/index.ts) — the resolver picks the OS locale automatically
+[`web/src/i18n/index.ts`](web/src/i18n/index.ts) — the resolver picks the OS locale automatically
 and falls back to English.
 
 ## Accessibility
@@ -66,8 +66,8 @@ and falls back to English.
 - Interactive collections use the matching ARIA pattern (the panel and terminal tabs
   implement `tablist`/`tab` with arrow-key navigation).
 - Announce asynchronous failures through an `aria-live` region — see
-  [`ErrorToast.tsx`](src/components/common/ErrorToast.tsx).
-- Never remove focus outlines; the global `:focus-visible` style in `src/index.css`
+  [`ErrorToast.tsx`](web/src/components/common/ErrorToast.tsx).
+- Never remove focus outlines; the global `:focus-visible` style in `web/src/index.css`
   covers keyboard users.
 
 ## Releasing
