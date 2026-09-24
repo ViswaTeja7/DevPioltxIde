@@ -21,17 +21,17 @@ within **7 days**.
 
 DevPilotX is a local-first desktop application. Key protections:
 
-| Layer | Protection |
-|---|---|
-| Backend binding | Loopback (`127.0.0.1`) only, ephemeral port |
-| DNS-rebinding defence | Non-loopback `Host` headers rejected with 403 |
-| Renderer | `contextIsolation`, `sandbox`, no `nodeIntegration`, strict CSP |
-| IPC | Preload exposes an allowlisted bridge only |
-| Terminal | Shell executable chosen from a server-side allowlist; clients send an id, never a path |
-| Filesystem | All `/api/fs/*` paths are resolved against the workspace root; escapes are refused |
-| Secrets | API keys encrypted with the OS keychain (DPAPI / Keychain / libsecret) via Electron `safeStorage`; never written to browser storage. Without the desktop keychain, keys are kept in `sessionStorage` only (cleared when the window closes). |
-| Agent commands | Destructive command patterns are denied; gated commands require explicit user approval |
-| Updates | Delivered over HTTPS from GitHub Releases; signed installers |
+| Layer                 | Protection                                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend binding       | Loopback (`127.0.0.1`) only, ephemeral port                                                                                                                                                                                                 |
+| DNS-rebinding defence | Non-loopback `Host` headers rejected with 403                                                                                                                                                                                               |
+| Renderer              | `contextIsolation`, `sandbox`, no `nodeIntegration`, strict CSP                                                                                                                                                                             |
+| IPC                   | Preload exposes an allowlisted bridge only                                                                                                                                                                                                  |
+| Terminal              | Shell executable chosen from a server-side allowlist; clients send an id, never a path                                                                                                                                                      |
+| Filesystem            | All `/api/fs/*` paths are resolved against the workspace root; escapes are refused                                                                                                                                                          |
+| Secrets               | API keys encrypted with the OS keychain (DPAPI / Keychain / libsecret) via Electron `safeStorage`; never written to browser storage. Without the desktop keychain, keys are kept in `sessionStorage` only (cleared when the window closes). |
+| Agent commands        | Destructive command patterns are denied; gated commands require explicit user approval                                                                                                                                                      |
+| Updates               | Delivered over HTTPS from GitHub Releases; signed installers                                                                                                                                                                                |
 
 ## Scope notes
 

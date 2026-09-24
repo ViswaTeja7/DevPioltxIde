@@ -14,9 +14,24 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'devops',
     enabled: true,
     triggers: [
-      'ci pipeline', 'continuous integration', 'cd', 'pipeline', 'github actions', 'workflow', 'deploy', 'deployment',
-      'docker', 'dockerfile', 'container', 'kubernetes', 'k8s', 'helm', 'terraform',
-      'ansible', 'build server', 'release'
+      'ci pipeline',
+      'continuous integration',
+      'cd',
+      'pipeline',
+      'github actions',
+      'workflow',
+      'deploy',
+      'deployment',
+      'docker',
+      'dockerfile',
+      'container',
+      'kubernetes',
+      'k8s',
+      'helm',
+      'terraform',
+      'ansible',
+      'build server',
+      'release'
     ],
     systemPrompt:
       'You are a DevOps engineer. Prefer reproducible and inspectable infrastructure over clever shortcuts. ' +
@@ -57,8 +72,18 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'testing',
     enabled: true,
     triggers: [
-      'test', 'tests', 'testing', 'unit test', 'integration test', 'vitest', 'jest',
-      'coverage', 'mock', 'stub', 'fixture', 'assert'
+      'test',
+      'tests',
+      'testing',
+      'unit test',
+      'integration test',
+      'vitest',
+      'jest',
+      'coverage',
+      'mock',
+      'stub',
+      'fixture',
+      'assert'
     ],
     systemPrompt:
       'You write tests that would actually catch a regression. Test observable behaviour, not implementation ' +
@@ -89,8 +114,21 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'backend',
     enabled: true,
     triggers: [
-      'api', 'apis', 'endpoint', 'endpoints', 'rest', 'express', 'route', 'routes',
-      'controller', 'middleware', 'handler', 'request', 'response', 'status code', 'validation'
+      'api',
+      'apis',
+      'endpoint',
+      'endpoints',
+      'rest',
+      'express',
+      'route',
+      'routes',
+      'controller',
+      'middleware',
+      'handler',
+      'request',
+      'response',
+      'status code',
+      'validation'
     ],
     systemPrompt:
       'You design HTTP APIs with explicit contracts. Validate and normalise input at the boundary before it ' +
@@ -121,9 +159,25 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'security',
     enabled: true,
     triggers: [
-      'security', 'secure', 'vulnerability', 'vulnerabilities', 'auth', 'authentication',
-      'authorization', 'xss', 'csrf', 'injection', 'sql injection', 'owasp', 'secret',
-      'secrets', 'sanitize', 'escape', 'encrypt', 'cve', 'audit'
+      'security',
+      'secure',
+      'vulnerability',
+      'vulnerabilities',
+      'auth',
+      'authentication',
+      'authorization',
+      'xss',
+      'csrf',
+      'injection',
+      'sql injection',
+      'owasp',
+      'secret',
+      'secrets',
+      'sanitize',
+      'escape',
+      'encrypt',
+      'cve',
+      'audit'
     ],
     systemPrompt:
       'You review code as a security engineer. For each finding state the concrete impact, not just the ' +
@@ -154,8 +208,20 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'architecture',
     enabled: true,
     triggers: [
-      'architecture', 'design', 'refactor', 'trade-off', 'tradeoff', 'trade-offs',
-      'scalab', 'pattern', 'patterns', 'structure', 'modular', 'monolith', 'microservice', 'migration'
+      'architecture',
+      'design',
+      'refactor',
+      'trade-off',
+      'tradeoff',
+      'trade-offs',
+      'scalab',
+      'pattern',
+      'patterns',
+      'structure',
+      'modular',
+      'monolith',
+      'microservice',
+      'migration'
     ],
     systemPrompt:
       'You reason about design rather than just producing code. State the options and the trade-off each ' +
@@ -181,13 +247,22 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
   {
     id: 'builtin-documentation',
     name: 'Documentation writing',
-    description:
-      'READMEs, ADRs and reference docs written for someone with no prior context.',
+    description: 'READMEs, ADRs and reference docs written for someone with no prior context.',
     category: 'documentation',
     enabled: true,
     triggers: [
-      'readme', 'docs', 'document', 'documentation', 'adr', 'changelog', 'comment',
-      'comments', 'jsdoc', 'guide', 'explain this code', 'onboard'
+      'readme',
+      'docs',
+      'document',
+      'documentation',
+      'adr',
+      'changelog',
+      'comment',
+      'comments',
+      'jsdoc',
+      'guide',
+      'explain this code',
+      'onboard'
     ],
     systemPrompt:
       'You write documentation for a reader with no prior context. Lead with what the thing is for, then how ' +
@@ -218,8 +293,22 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'frontend',
     enabled: true,
     triggers: [
-      'react', 'component', 'components', 'hook', 'hooks', 'usestate', 'useeffect',
-      'tsx', 'jsx', 'props', 'state management', 'form', 'tailwind', 'css', 'accessible', 'accessibility'
+      'react',
+      'component',
+      'components',
+      'hook',
+      'hooks',
+      'usestate',
+      'useeffect',
+      'tsx',
+      'jsx',
+      'props',
+      'state management',
+      'form',
+      'tailwind',
+      'css',
+      'accessible',
+      'accessibility'
     ],
     systemPrompt:
       'You write React and TypeScript for a real product. Type props explicitly and avoid any. Keep state ' +
@@ -250,10 +339,31 @@ export const DEFAULT_BUILTIN_SKILLS: AgentSkill[] = [
     category: 'custom',
     enabled: true,
     triggers: [
-      'install', 'dependencies', 'dependency', 'build', 'compile', 'bundle',
-      'test', 'tests', 'testing', 'unit test', 'lint', 'typecheck', 'tsc',
-      'dev server', 'run dev', 'start dev', 'serve', 'npm', 'yarn', 'pnpm',
-      'bun', 'package manager', 'run script', 'migrate', 'deploy'
+      'install',
+      'dependencies',
+      'dependency',
+      'build',
+      'compile',
+      'bundle',
+      'test',
+      'tests',
+      'testing',
+      'unit test',
+      'lint',
+      'typecheck',
+      'tsc',
+      'dev server',
+      'run dev',
+      'start dev',
+      'serve',
+      'npm',
+      'yarn',
+      'pnpm',
+      'bun',
+      'package manager',
+      'run script',
+      'migrate',
+      'deploy'
     ],
     systemPrompt:
       'You are a build-and-run engineer for this project. To actually execute work you have a run_command tool ' +

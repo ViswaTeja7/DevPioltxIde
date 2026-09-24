@@ -1,29 +1,29 @@
 import React, { useState } from 'react';
-import { 
-  BrainCircuit, 
-  Sparkles, 
-  CheckCircle2, 
-  Plus, 
-  Search, 
-  Sliders, 
-  Layers, 
-  ShieldAlert, 
-  Cpu, 
-  Code2, 
-  Trash2, 
-  Edit3, 
-  RotateCcw, 
-  Download, 
-  Upload, 
-  ChevronDown, 
-  ChevronRight, 
-  Send, 
-  GraduationCap, 
-  BookOpen, 
-  FileText, 
-  Check, 
-  Copy, 
-  Terminal, 
+import {
+  BrainCircuit,
+  Sparkles,
+  CheckCircle2,
+  Plus,
+  Search,
+  Sliders,
+  Layers,
+  ShieldAlert,
+  Cpu,
+  Code2,
+  Trash2,
+  Edit3,
+  RotateCcw,
+  Download,
+  Upload,
+  ChevronDown,
+  ChevronRight,
+  Send,
+  GraduationCap,
+  BookOpen,
+  FileText,
+  Check,
+  Copy,
+  Terminal,
   ExternalLink,
   Info,
   X,
@@ -35,14 +35,14 @@ import { AgentSkill, SkillCategory, TrainingExample, KnowledgeDoc } from '../../
 type StudioTab = 'skills' | 'training' | 'knowledge' | 'sandbox';
 
 export const AgentTrainingStudio = () => {
-  const { 
-    skills, 
-    addSkill, 
-    updateSkill, 
-    toggleSkill, 
-    deleteSkill, 
+  const {
+    skills,
+    addSkill,
+    updateSkill,
+    toggleSkill,
+    deleteSkill,
     resetSkills,
-    trainingProfile, 
+    trainingProfile,
     updateTrainingProfile,
     trainingExamples,
     addTrainingExample,
@@ -82,9 +82,9 @@ export const AgentTrainingStudio = () => {
   // Strict Rule input state
   const [newRuleInput, setNewRuleInput] = useState('');
 
-  const enabledSkillsCount = skills.filter((s) => s.enabled).length;
-  const enabledExamplesCount = trainingExamples.filter((e) => e.enabled).length;
-  const enabledDocsCount = knowledgeDocs.filter((d) => d.enabled).length;
+  const enabledSkillsCount = skills.filter(s => s.enabled).length;
+  const enabledExamplesCount = trainingExamples.filter(e => e.enabled).length;
+  const enabledDocsCount = knowledgeDocs.filter(d => d.enabled).length;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -114,7 +114,7 @@ export const AgentTrainingStudio = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = event => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (Array.isArray(parsed.skills)) {
@@ -211,9 +211,9 @@ export const AgentTrainingStudio = () => {
     }
   };
 
-  const filteredSkills = skills.filter((s) => {
+  const filteredSkills = skills.filter(s => {
     const matchesCategory = selectedCategory === 'all' || s.category === selectedCategory;
-    const matchesSearch = 
+    const matchesSearch =
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.triggers.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -232,10 +232,10 @@ export const AgentTrainingStudio = () => {
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 Agent Skills & Training Studio
-
               </h1>
               <p className="text-xs text-[#8B949E] mt-0.5">
-                Equip your coding agent with specialized skills, teach patterns through few-shot exemplars, and tune behavior.
+                Equip your coding agent with specialized skills, teach patterns through few-shot
+                exemplars, and tune behavior.
               </p>
             </div>
           </div>
@@ -283,9 +283,12 @@ export const AgentTrainingStudio = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-3 border-b border-[#30363D] bg-[#0D1117] text-xs">
         <div className="p-2.5 rounded-lg bg-[#161B22] border border-[#30363D] flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">Active Skills</div>
+            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">
+              Active Skills
+            </div>
             <div className="text-base font-bold text-white mt-0.5">
-              {enabledSkillsCount} <span className="text-xs text-[#8B949E] font-normal">/ {skills.length}</span>
+              {enabledSkillsCount}{' '}
+              <span className="text-xs text-[#8B949E] font-normal">/ {skills.length}</span>
             </div>
           </div>
           <div className="p-2 rounded bg-[#58A6FF]/10 text-[#58A6FF]">
@@ -295,9 +298,12 @@ export const AgentTrainingStudio = () => {
 
         <div className="p-2.5 rounded-lg bg-[#161B22] border border-[#30363D] flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">Training Exemplars</div>
+            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">
+              Training Exemplars
+            </div>
             <div className="text-base font-bold text-[#A371F7] mt-0.5">
-              {enabledExamplesCount} <span className="text-xs text-[#8B949E] font-normal">active pairs</span>
+              {enabledExamplesCount}{' '}
+              <span className="text-xs text-[#8B949E] font-normal">active pairs</span>
             </div>
           </div>
           <div className="p-2 rounded bg-[#A371F7]/10 text-[#A371F7]">
@@ -307,9 +313,12 @@ export const AgentTrainingStudio = () => {
 
         <div className="p-2.5 rounded-lg bg-[#161B22] border border-[#30363D] flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">Project Docs</div>
+            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">
+              Project Docs
+            </div>
             <div className="text-base font-bold text-[#3FB950] mt-0.5">
-              {enabledDocsCount} <span className="text-xs text-[#8B949E] font-normal">in context</span>
+              {enabledDocsCount}{' '}
+              <span className="text-xs text-[#8B949E] font-normal">in context</span>
             </div>
           </div>
           <div className="p-2 rounded bg-[#3FB950]/10 text-[#3FB950]">
@@ -319,7 +328,9 @@ export const AgentTrainingStudio = () => {
 
         <div className="p-2.5 rounded-lg bg-[#161B22] border border-[#30363D] flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">Agent Persona</div>
+            <div className="text-[10px] uppercase font-bold text-[#8B949E] tracking-wider">
+              Agent Persona
+            </div>
             <div className="text-xs font-semibold text-white mt-0.5 truncate max-w-[140px]">
               {trainingProfile.persona.replace('-', ' ')}
             </div>
@@ -395,13 +406,21 @@ export const AgentTrainingStudio = () => {
                     type="text"
                     placeholder="Search skills by name, keywords, or triggers..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={e => setSearchQuery(e.target.value)}
                     className="w-full bg-[#0D1117] text-xs pl-9 pr-3 py-2 rounded-md border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none"
                   />
                 </div>
 
                 <div className="flex items-center gap-1 overflow-x-auto">
-                  {['all', 'architecture', 'testing', 'security', 'frontend', 'backend', 'custom'].map((cat) => (
+                  {[
+                    'all',
+                    'architecture',
+                    'testing',
+                    'security',
+                    'frontend',
+                    'backend',
+                    'custom'
+                  ].map(cat => (
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
@@ -442,15 +461,15 @@ export const AgentTrainingStudio = () => {
 
             {/* Skills Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredSkills.map((skill) => {
+              {filteredSkills.map(skill => {
                 const isExpanded = expandedSkillId === skill.id;
 
                 return (
                   <div
                     key={skill.id}
                     className={`rounded-xl border transition-all flex flex-col ${
-                      skill.enabled 
-                        ? 'bg-[#161B22] border-[#30363D] shadow-sm hover:border-[#58A6FF]/40' 
+                      skill.enabled
+                        ? 'bg-[#161B22] border-[#30363D] shadow-sm hover:border-[#58A6FF]/40'
                         : 'bg-[#161B22]/50 border-[#21262D] opacity-75 hover:opacity-90'
                     }`}
                   >
@@ -462,9 +481,7 @@ export const AgentTrainingStudio = () => {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-white text-sm">
-                              {skill.name}
-                            </h3>
+                            <h3 className="font-semibold text-white text-sm">{skill.name}</h3>
                             {skill.isBuiltin ? (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#30363D] text-[#8B949E]">
                                 Built-in
@@ -490,7 +507,11 @@ export const AgentTrainingStudio = () => {
                         className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
                           skill.enabled ? 'bg-[#238636]' : 'bg-[#30363D]'
                         }`}
-                        title={skill.enabled ? 'Enabled (click to disable)' : 'Disabled (click to enable)'}
+                        title={
+                          skill.enabled
+                            ? 'Enabled (click to disable)'
+                            : 'Disabled (click to enable)'
+                        }
                       >
                         <div
                           className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-0.5 ${
@@ -503,8 +524,10 @@ export const AgentTrainingStudio = () => {
                     {/* Trigger Keywords */}
                     <div className="px-4 py-2.5 bg-[#0D1117]/60 flex items-center justify-between gap-2 text-xs border-b border-[#30363D]/40">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] text-[#8B949E] font-medium uppercase tracking-wider">Triggers:</span>
-                        {skill.triggers.map((t) => (
+                        <span className="text-[10px] text-[#8B949E] font-medium uppercase tracking-wider">
+                          Triggers:
+                        </span>
+                        {skill.triggers.map(t => (
                           <span
                             key={t}
                             className="px-1.5 py-0.5 rounded bg-[#21262D] text-[#58A6FF] font-mono text-[10px]"
@@ -532,7 +555,11 @@ export const AgentTrainingStudio = () => {
                               onClick={() => handleCopy(skill.systemPrompt, `prompt-${skill.id}`)}
                               className="text-[#8B949E] hover:text-white flex items-center gap-1 text-[11px]"
                             >
-                              {copiedId === `prompt-${skill.id}` ? <Check size={12} className="text-[#3FB950]" /> : <Copy size={12} />}
+                              {copiedId === `prompt-${skill.id}` ? (
+                                <Check size={12} className="text-[#3FB950]" />
+                              ) : (
+                                <Copy size={12} />
+                              )}
                               Copy
                             </button>
                           </div>
@@ -549,7 +576,10 @@ export const AgentTrainingStudio = () => {
                             </div>
                             <div className="space-y-2">
                               {skill.fewShotExamples.map((ex, idx) => (
-                                <div key={idx} className="p-2 rounded bg-[#161B22] border border-[#30363D] space-y-1">
+                                <div
+                                  key={idx}
+                                  className="p-2 rounded bg-[#161B22] border border-[#30363D] space-y-1"
+                                >
                                   <div className="text-[11px] font-medium text-[#58A6FF]">
                                     Query: {ex.userQuery}
                                   </div>
@@ -615,13 +645,14 @@ export const AgentTrainingStudio = () => {
                     Agent Persona & Custom Directives
                   </h2>
                   <p className="text-xs text-[#8B949E] mt-0.5">
-                    Define the core mindset, guardrails, and tone the agent must embody across all chats and tasks.
+                    Define the core mindset, guardrails, and tone the agent must embody across all
+                    chats and tasks.
                   </p>
                 </div>
 
                 <select
                   value={trainingProfile.persona}
-                  onChange={(e) => updateTrainingProfile({ persona: e.target.value as any })}
+                  onChange={e => updateTrainingProfile({ persona: e.target.value as any })}
                   className="bg-[#0D1117] border border-[#30363D] rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-[#58A6FF]"
                 >
                   <option value="senior-architect">Senior Systems Architect</option>
@@ -640,7 +671,9 @@ export const AgentTrainingStudio = () => {
                 <textarea
                   rows={3}
                   value={trainingProfile.customSystemInstructions}
-                  onChange={(e) => updateTrainingProfile({ customSystemInstructions: e.target.value })}
+                  onChange={e =>
+                    updateTrainingProfile({ customSystemInstructions: e.target.value })
+                  }
                   placeholder="e.g. Always write full code solutions without omitting lines. Never introduce unnecessary third party libraries. Prefer functional programming patterns."
                   className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg p-3 text-xs text-[#C9D1D9] outline-none focus:border-[#58A6FF] font-sans leading-relaxed"
                 />
@@ -657,10 +690,12 @@ export const AgentTrainingStudio = () => {
                       type="text"
                       placeholder="Add strict rule (e.g., 'Never use any in TypeScript', 'Always write tests using Vitest')"
                       value={newRuleInput}
-                      onChange={(e) => setNewRuleInput(e.target.value)}
-                      onKeyDown={(e) => {
+                      onChange={e => setNewRuleInput(e.target.value)}
+                      onKeyDown={e => {
                         if (e.key === 'Enter' && newRuleInput.trim()) {
-                          updateTrainingProfile({ strictRules: [...trainingProfile.strictRules, newRuleInput.trim()] });
+                          updateTrainingProfile({
+                            strictRules: [...trainingProfile.strictRules, newRuleInput.trim()]
+                          });
                           setNewRuleInput('');
                         }
                       }}
@@ -669,7 +704,9 @@ export const AgentTrainingStudio = () => {
                     <button
                       onClick={() => {
                         if (newRuleInput.trim()) {
-                          updateTrainingProfile({ strictRules: [...trainingProfile.strictRules, newRuleInput.trim()] });
+                          updateTrainingProfile({
+                            strictRules: [...trainingProfile.strictRules, newRuleInput.trim()]
+                          });
                           setNewRuleInput('');
                         }
                       }}
@@ -710,7 +747,7 @@ export const AgentTrainingStudio = () => {
                 <textarea
                   rows={2}
                   value={trainingProfile.teamConventions}
-                  onChange={(e) => updateTrainingProfile({ teamConventions: e.target.value })}
+                  onChange={e => updateTrainingProfile({ teamConventions: e.target.value })}
                   placeholder="e.g. Tailwind CSS for styles, Lucide for icons, PascalCase for component files, named exports."
                   className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg p-3 text-xs text-[#C9D1D9] outline-none focus:border-[#58A6FF]"
                 />
@@ -726,7 +763,8 @@ export const AgentTrainingStudio = () => {
                     Few-Shot Demonstrations (User-Trained Patterns)
                   </h2>
                   <p className="text-xs text-[#8B949E] mt-0.5">
-                    Teach the agent your exact preferred code style by showing input/output exemplar pairs.
+                    Teach the agent your exact preferred code style by showing input/output exemplar
+                    pairs.
                   </p>
                 </div>
 
@@ -744,12 +782,12 @@ export const AgentTrainingStudio = () => {
 
               {/* Demonstrations List */}
               <div className="space-y-3">
-                {trainingExamples.map((ex) => (
+                {trainingExamples.map(ex => (
                   <div
                     key={ex.id}
                     className={`p-4 rounded-xl border transition-all ${
-                      ex.enabled 
-                        ? 'bg-[#0D1117] border-[#30363D]' 
+                      ex.enabled
+                        ? 'bg-[#0D1117] border-[#30363D]'
                         : 'bg-[#0D1117]/50 border-[#21262D] opacity-60'
                     }`}
                   >
@@ -797,9 +835,7 @@ export const AgentTrainingStudio = () => {
                         <div className="text-[10px] uppercase font-bold text-[#8B949E] mb-1">
                           User Prompt
                         </div>
-                        <div className="text-white text-xs line-clamp-3">
-                          {ex.userPrompt}
-                        </div>
+                        <div className="text-white text-xs line-clamp-3">{ex.userPrompt}</div>
                       </div>
 
                       <div className="p-3 rounded-lg bg-[#161B22] border border-[#30363D]">
@@ -828,7 +864,8 @@ export const AgentTrainingStudio = () => {
                   Project Context & Knowledge Base
                 </h2>
                 <p className="text-xs text-[#8B949E] mt-0.5">
-                  Inject custom architecture documents, schema definitions, and internal API specs into the agent's memory.
+                  Inject custom architecture documents, schema definitions, and internal API specs
+                  into the agent's memory.
                 </p>
               </div>
 
@@ -845,11 +882,13 @@ export const AgentTrainingStudio = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {knowledgeDocs.map((doc) => (
+              {knowledgeDocs.map(doc => (
                 <div
                   key={doc.id}
                   className={`p-4 rounded-xl border flex flex-col justify-between ${
-                    doc.enabled ? 'bg-[#161B22] border-[#30363D]' : 'bg-[#161B22]/50 border-[#21262D] opacity-60'
+                    doc.enabled
+                      ? 'bg-[#161B22] border-[#30363D]'
+                      : 'bg-[#161B22]/50 border-[#21262D] opacity-60'
                   }`}
                 >
                   <div>
@@ -919,7 +958,8 @@ export const AgentTrainingStudio = () => {
                     Live Agent Training Sandbox
                   </h2>
                   <p className="text-xs text-[#8B949E] mt-0.5">
-                    Test your agent in real-time with the currently active skills, persona instructions, and few-shot exemplars.
+                    Test your agent in real-time with the currently active skills, persona
+                    instructions, and few-shot exemplars.
                   </p>
                 </div>
 
@@ -936,11 +976,16 @@ export const AgentTrainingStudio = () => {
                 <span className="text-[10px] font-bold text-[#8B949E] uppercase tracking-wider mr-1">
                   Active Skills in Context:
                 </span>
-                {skills.filter(s => s.enabled).map(s => (
-                  <span key={s.id} className="px-2 py-0.5 rounded-full bg-[#1F6FEB]/15 text-[#58A6FF] border border-[#388BFD]/30 text-[10px]">
-                    ⚡ {s.name}
-                  </span>
-                ))}
+                {skills
+                  .filter(s => s.enabled)
+                  .map(s => (
+                    <span
+                      key={s.id}
+                      className="px-2 py-0.5 rounded-full bg-[#1F6FEB]/15 text-[#58A6FF] border border-[#388BFD]/30 text-[10px]"
+                    >
+                      ⚡ {s.name}
+                    </span>
+                  ))}
                 {skills.filter(s => s.enabled).length === 0 && (
                   <span className="text-xs text-[#8B949E] italic">No skills currently enabled</span>
                 )}
@@ -951,7 +996,7 @@ export const AgentTrainingStudio = () => {
                 <textarea
                   rows={3}
                   value={sandboxPrompt}
-                  onChange={(e) => setSandboxPrompt(e.target.value)}
+                  onChange={e => setSandboxPrompt(e.target.value)}
                   placeholder="Enter a prompt or code task to test the trained agent's behavior (e.g. 'Refactor this API handler to include robust input validation and logging')..."
                   className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg p-3 text-xs text-white outline-none focus:border-[#58A6FF] leading-relaxed"
                 />
@@ -996,7 +1041,11 @@ export const AgentTrainingStudio = () => {
                       onClick={() => handleCopy(sandboxOutput, 'sandbox-out')}
                       className="flex items-center gap-1 text-xs text-[#8B949E] hover:text-white px-2 py-1 rounded bg-[#0D1117] border border-[#30363D]"
                     >
-                      {copiedId === 'sandbox-out' ? <Check size={12} className="text-[#3FB950]" /> : <Copy size={12} />}
+                      {copiedId === 'sandbox-out' ? (
+                        <Check size={12} className="text-[#3FB950]" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
                       Copy Output
                     </button>
 
@@ -1029,26 +1078,39 @@ export const AgentTrainingStudio = () => {
                 <BrainCircuit size={16} className="text-[#A371F7]" />
                 {editingSkill ? 'Edit Skill' : 'Create Custom Claude Skill'}
               </h3>
-              <button onClick={() => setIsSkillModalOpen(false)} className="text-[#8B949E] hover:text-white">
+              <button
+                onClick={() => setIsSkillModalOpen(false)}
+                className="text-[#8B949E] hover:text-white"
+              >
                 <X size={16} />
               </button>
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={e => {
                 e.preventDefault();
                 const form = e.currentTarget;
                 const name = (form.elements.namedItem('name') as HTMLInputElement).value;
-                const category = (form.elements.namedItem('category') as HTMLSelectElement).value as SkillCategory;
-                const description = (form.elements.namedItem('description') as HTMLInputElement).value;
+                const category = (form.elements.namedItem('category') as HTMLSelectElement)
+                  .value as SkillCategory;
+                const description = (form.elements.namedItem('description') as HTMLInputElement)
+                  .value;
                 const triggers = (form.elements.namedItem('triggers') as HTMLInputElement).value
                   .split(',')
                   .map(t => t.trim().toLowerCase().replace(/^#/, ''))
                   .filter(Boolean);
-                const systemPrompt = (form.elements.namedItem('systemPrompt') as HTMLTextAreaElement).value;
+                const systemPrompt = (
+                  form.elements.namedItem('systemPrompt') as HTMLTextAreaElement
+                ).value;
 
                 if (editingSkill) {
-                  updateSkill(editingSkill.id, { name, category, description, triggers, systemPrompt });
+                  updateSkill(editingSkill.id, {
+                    name,
+                    category,
+                    description,
+                    triggers,
+                    systemPrompt
+                  });
                 } else {
                   addSkill({
                     name,
@@ -1094,7 +1156,9 @@ export const AgentTrainingStudio = () => {
                 </div>
 
                 <div>
-                  <label className="block text-white font-semibold mb-1">Triggers (comma separated)</label>
+                  <label className="block text-white font-semibold mb-1">
+                    Triggers (comma separated)
+                  </label>
                   <input
                     name="triggers"
                     defaultValue={editingSkill?.triggers.join(', ') || ''}
@@ -1158,22 +1222,33 @@ export const AgentTrainingStudio = () => {
                 <GraduationCap size={16} className="text-[#A371F7]" />
                 {editingExample?.id ? 'Edit Training Demonstration' : 'Add Training Demonstration'}
               </h3>
-              <button onClick={() => setIsExampleModalOpen(false)} className="text-[#8B949E] hover:text-white">
+              <button
+                onClick={() => setIsExampleModalOpen(false)}
+                className="text-[#8B949E] hover:text-white"
+              >
                 <X size={16} />
               </button>
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={e => {
                 e.preventDefault();
                 const form = e.currentTarget;
                 const title = (form.elements.namedItem('title') as HTMLInputElement).value;
                 const category = (form.elements.namedItem('category') as HTMLInputElement).value;
-                const userPrompt = (form.elements.namedItem('userPrompt') as HTMLTextAreaElement).value;
-                const idealResponse = (form.elements.namedItem('idealResponse') as HTMLTextAreaElement).value;
+                const userPrompt = (form.elements.namedItem('userPrompt') as HTMLTextAreaElement)
+                  .value;
+                const idealResponse = (
+                  form.elements.namedItem('idealResponse') as HTMLTextAreaElement
+                ).value;
 
                 if (editingExample?.id) {
-                  updateTrainingExample(editingExample.id, { title, category, userPrompt, idealResponse });
+                  updateTrainingExample(editingExample.id, {
+                    title,
+                    category,
+                    userPrompt,
+                    idealResponse
+                  });
                 } else {
                   addTrainingExample({
                     title,
@@ -1223,7 +1298,9 @@ export const AgentTrainingStudio = () => {
               </div>
 
               <div>
-                <label className="block text-white font-semibold mb-1">Ideal Assistant Response (Exemplar)</label>
+                <label className="block text-white font-semibold mb-1">
+                  Ideal Assistant Response (Exemplar)
+                </label>
                 <textarea
                   name="idealResponse"
                   rows={8}
@@ -1263,13 +1340,16 @@ export const AgentTrainingStudio = () => {
                 <BookOpen size={16} className="text-[#3FB950]" />
                 {editingDoc ? 'Edit Knowledge Document' : 'Add Knowledge Document'}
               </h3>
-              <button onClick={() => setIsDocModalOpen(false)} className="text-[#8B949E] hover:text-white">
+              <button
+                onClick={() => setIsDocModalOpen(false)}
+                className="text-[#8B949E] hover:text-white"
+              >
                 <X size={16} />
               </button>
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={e => {
                 e.preventDefault();
                 const form = e.currentTarget;
                 const title = (form.elements.namedItem('title') as HTMLInputElement).value;

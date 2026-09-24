@@ -50,10 +50,7 @@ export const computeLinkedProviders = (
   };
 };
 
-export const isProviderLinked = (
-  provider: AIProvider,
-  linked: LinkedProviders
-): boolean => {
+export const isProviderLinked = (provider: AIProvider, linked: LinkedProviders): boolean => {
   switch (provider) {
     case 'gemini':
       return linked.gemini;

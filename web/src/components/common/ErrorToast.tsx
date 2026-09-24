@@ -58,7 +58,9 @@ export const ErrorToast = () => {
             <div className="mt-0.5 break-words text-[#F0B7B3]">{toast.message}</div>
           </div>
           <button
-            onClick={() => setToasts(previous => previous.filter(current => current.id !== toast.id))}
+            onClick={() =>
+              setToasts(previous => previous.filter(current => current.id !== toast.id))
+            }
             className="shrink-0 rounded p-0.5 text-[#FFA198] hover:bg-[#3D2323] hover:text-white"
             aria-label={t('common.dismiss')}
           >

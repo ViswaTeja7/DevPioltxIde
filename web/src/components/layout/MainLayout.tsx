@@ -21,7 +21,7 @@ export const MainLayout = () => {
     isPanelOpen,
     activeView,
     isModelSelectorOpen,
-    setIsModelSelectorOpen,
+    setIsModelSelectorOpen
   } = useIDE();
 
   // Global shortcuts: Ctrl+B toggles the sidebar, Ctrl+` toggles the bottom panel

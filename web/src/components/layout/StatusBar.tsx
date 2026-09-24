@@ -9,9 +9,7 @@ export const StatusBar = () => {
 
   // The desktop app serves this UI from the local backend on an ephemeral port,
   // so read the real port rather than assuming a fixed one.
-  const servedPort =
-    window.location.port ||
-    (window.location.protocol === 'https:' ? '443' : '80');
+  const servedPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
 
   return (
     <div className="h-6 bg-[#21262D] border-t border-[#30363D] text-[#8B949E] flex items-center justify-between px-3 text-[10px] shrink-0 select-none">
@@ -21,8 +19,12 @@ export const StatusBar = () => {
           <span>feature/devpilotx-models</span>
         </div>
         <div className="flex items-center gap-2 hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
-          <div className="flex items-center gap-1"><XCircle size={12} /> 0</div>
-          <div className="flex items-center gap-1"><AlertTriangle size={12} /> 0</div>
+          <div className="flex items-center gap-1">
+            <XCircle size={12} /> 0
+          </div>
+          <div className="flex items-center gap-1">
+            <AlertTriangle size={12} /> 0
+          </div>
         </div>
         <div className="flex items-center gap-1 hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
           <RadioTower size={12} />
@@ -51,7 +53,9 @@ export const StatusBar = () => {
               UTF-8
             </div>
             <div className="hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
-              {activeFile.language === 'typescript' ? 'TypeScript React' : activeFile.language || 'Plain Text'}
+              {activeFile.language === 'typescript'
+                ? 'TypeScript React'
+                : activeFile.language || 'Plain Text'}
             </div>
           </>
         )}

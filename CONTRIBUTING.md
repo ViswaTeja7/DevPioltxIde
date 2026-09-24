@@ -22,16 +22,16 @@ npm run dev        # tsx server/server.ts on http://127.0.0.1:3000
 
 ## Quality gates (must pass before merge)
 
-| Command | What it checks |
-|---|---|
-| `npm run lint` | TypeScript typecheck (renderer + electron configs) |
-| `npm run lint:eslint` | ESLint (style/rules; warnings are being ratcheted to errors) |
-| `npm test` / `npm run test:coverage` | Vitest unit tests; coverage thresholds enforced on `web/src/lib` |
-| `npm run test:e2e` | Playwright smoke tests that launch the real Electron app (requires `npm run build` first) |
-| `npm run build` | Production build (renderer + server bundle + electron) |
-| `npm run format:check` | Prettier formatting |
-| `npm run notices` | Regenerates `THIRD_PARTY_NOTICES.md` from the lockfile |
-| `npm run sbom` | Emits a CycloneDX SBOM for compliance tooling |
+| Command                              | What it checks                                                                            |
+| ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `npm run lint`                       | TypeScript typecheck (renderer + electron configs)                                        |
+| `npm run lint:eslint`                | ESLint (style/rules; warnings are being ratcheted to errors)                              |
+| `npm test` / `npm run test:coverage` | Vitest unit tests; coverage thresholds enforced on `web/src/lib`                          |
+| `npm run test:e2e`                   | Playwright smoke tests that launch the real Electron app (requires `npm run build` first) |
+| `npm run build`                      | Production build (renderer + server bundle + electron)                                    |
+| `npm run format:check`               | Prettier formatting                                                                       |
+| `npm run notices`                    | Regenerates `THIRD_PARTY_NOTICES.md` from the lockfile                                    |
+| `npm run sbom`                       | Emits a CycloneDX SBOM for compliance tooling                                             |
 
 CI runs all of the above on Ubuntu, Windows and macOS, plus `npm audit --audit-level=high`
 and the end-to-end suite on Windows and macOS.

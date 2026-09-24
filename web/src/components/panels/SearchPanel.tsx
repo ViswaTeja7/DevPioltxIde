@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useIDE } from '../../context/IDEContext';
-import { 
-  Search, 
-  Replace, 
-  ChevronRight, 
-  ChevronDown, 
-  CaseSensitive, 
-  WholeWord, 
-  Regex, 
-  FileCode, 
-  FileText, 
-  Check, 
+import {
+  Search,
+  Replace,
+  ChevronRight,
+  ChevronDown,
+  CaseSensitive,
+  WholeWord,
+  Regex,
+  FileCode,
+  FileText,
+  Check,
   RefreshCw,
   X
 } from 'lucide-react';
@@ -60,7 +60,7 @@ export const SearchPanel = () => {
 
     const results: FileSearchResult[] = [];
 
-    allFiles.forEach((file) => {
+    allFiles.forEach(file => {
       const content = file.content || '';
       const lines = content.split('\n');
       const fileMatches: MatchLine[] = [];
@@ -190,11 +190,11 @@ export const SearchPanel = () => {
               type="text"
               placeholder="Search in project..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               className="bg-transparent text-xs text-white placeholder-[#8B949E] outline-none w-full"
             />
             {searchQuery && (
-              <button 
+              <button
                 onClick={() => setSearchQuery('')}
                 className="text-[#8B949E] hover:text-white p-0.5"
               >
@@ -236,7 +236,7 @@ export const SearchPanel = () => {
                   type="text"
                   placeholder="Replace with..."
                   value={replaceQuery}
-                  onChange={(e) => setReplaceQuery(e.target.value)}
+                  onChange={e => setReplaceQuery(e.target.value)}
                   className="bg-transparent text-xs text-white placeholder-[#8B949E] outline-none w-full"
                 />
               </div>
@@ -263,7 +263,8 @@ export const SearchPanel = () => {
         {searchQuery.trim() && (
           <div className="mt-2 text-[11px] text-[#8B949E] flex items-center justify-between">
             <span>
-              {totalMatches} result{totalMatches === 1 ? '' : 's'} in {searchResults.length} file{searchResults.length === 1 ? '' : 's'}
+              {totalMatches} result{totalMatches === 1 ? '' : 's'} in {searchResults.length} file
+              {searchResults.length === 1 ? '' : 's'}
             </span>
           </div>
         )}

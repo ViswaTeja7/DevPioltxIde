@@ -63,7 +63,9 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
 
   // Model selection state for Task Studio
   const [selectedTaskModelId, setSelectedTaskModelId] = useState<string>(
-    activeTaskType === 'image' ? DEFAULT_IMAGE_MODEL_ID : (llmConfig?.selectedModelId || DEFAULT_MODEL_ID)
+    activeTaskType === 'image'
+      ? DEFAULT_IMAGE_MODEL_ID
+      : llmConfig?.selectedModelId || DEFAULT_MODEL_ID
   );
 
   // Automatically adjust model selection when switching between image and non-image tasks
@@ -84,7 +86,9 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
   const [aspectRatio, setAspectRatio] = useState<'1:1' | '16:9' | '9:16' | '4:3' | '3:4'>('1:1');
   const [imageStyle, setImageStyle] = useState<string>('modern');
   const [imageEngine, setImageEngine] = useState<'auto' | 'neural' | 'gemini'>('auto');
-  const [researchDepth, setResearchDepth] = useState<'detailed' | 'brief' | 'comprehensive'>('detailed');
+  const [researchDepth, setResearchDepth] = useState<'detailed' | 'brief' | 'comprehensive'>(
+    'detailed'
+  );
   const [docFormat, setDocFormat] = useState<'prd' | 'adr' | 'api' | 'readme'>('prd');
   const [filterTaskType, setFilterTaskType] = useState<TaskType | 'all'>('all');
 
@@ -121,10 +125,14 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
 
     try {
       const activeModel = getModelById(selectedTaskModelId);
-      const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
-        nodes.flatMap(node => node.type === 'folder'
-          ? flattenFiles(node.children || [])
-          : [{ path: node.path, content: node.content || '', language: node.language }]);
+      const flattenFiles = (
+        nodes: typeof fileTree
+      ): { path: string; content: string; language?: string }[] =>
+        nodes.flatMap(node =>
+          node.type === 'folder'
+            ? flattenFiles(node.children || [])
+            : [{ path: node.path, content: node.content || '', language: node.language }]
+        );
       const workspace = flattenFiles(fileTree);
 
       if (activeTaskType === 'image') {
@@ -164,7 +172,9 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
           }
         });
       } else if (activeTaskType === 'research') {
-        setLoadingPhase(`Gathering live web data and structuring research briefing with ${activeModel.name}...`);
+        setLoadingPhase(
+          `Gathering live web data and structuring research briefing with ${activeModel.name}...`
+        );
         const res = await fetch('/api/research', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -199,8 +209,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
           activeTaskType === 'docs'
             ? `Authoring technical specification with ${activeModel.name}...`
             : activeTaskType === 'brainstorm'
-            ? `Synthesizing product ideas and strategy with ${activeModel.name}...`
-            : `Processing task response with ${activeModel.name}...`
+              ? `Synthesizing product ideas and strategy with ${activeModel.name}...`
+              : `Processing task response with ${activeModel.name}...`
         );
 
         const res = await fetch('/api/task-chat', {
@@ -208,7 +218,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: [
-              ...taskChatHistory.slice(-6).map((m) => ({
+              ...taskChatHistory.slice(-6).map(m => ({
                 role: m.role,
                 content: m.content
               })),
@@ -257,7 +267,11 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
   const handleDownloadImage = (url: string, prompt: string) => {
     const a = document.createElement('a');
     a.href = url;
-    const cleanName = prompt.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30) || 'asset';
+    const cleanName =
+      prompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .slice(0, 30) || 'asset';
     const isSvg = url.startsWith('data:image/svg');
     a.download = `${cleanName}.${isSvg ? 'svg' : 'png'}`;
     document.body.appendChild(a);
@@ -266,11 +280,19 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
   };
 
   const handleSaveImageToProject = (url: string, prompt: string, msgId: string) => {
-    const cleanName = prompt.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 24) || 'asset';
+    const cleanName =
+      prompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .slice(0, 24) || 'asset';
     const isSvg = url.startsWith('data:image/svg');
     const isHttp = url.startsWith('http');
-    const fileName = isSvg ? `src/assets/${cleanName}.svg` : isHttp ? `src/assets/${cleanName}.ts` : `src/assets/${cleanName}.png`;
-    
+    const fileName = isSvg
+      ? `src/assets/${cleanName}.svg`
+      : isHttp
+        ? `src/assets/${cleanName}.ts`
+        : `src/assets/${cleanName}.png`;
+
     // For SVG data URLs, extract decode; for HTTP URLs, export as TypeScript asset module
     let fileContent = url;
     if (isSvg && url.includes(',')) {
@@ -289,7 +311,11 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
   };
 
   const handleSaveDocToProject = (title: string, markdownContent: string, msgId: string) => {
-    const cleanName = title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30) || 'research-report';
+    const cleanName =
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .slice(0, 30) || 'research-report';
     const fileName = `docs/${cleanName}.md`;
     saveAssetToProject(fileName, markdownContent, 'markdown');
     setSavedId(msgId);
@@ -297,16 +323,39 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
   };
 
   const taskTabs = [
-    { id: 'image', label: 'Images & Assets', icon: ImageIcon, desc: 'Generate icons, UI illustrations & logos' },
-    { id: 'research', label: 'Deep Research', icon: Search, desc: 'Web-grounded technical research & comparisons' },
-    { id: 'docs', label: 'Docs & Specs', icon: FileText, desc: 'PRDs, ADRs, OpenAPI specs & READMEs' },
-    { id: 'brainstorm', label: 'Brainstorm', icon: Lightbulb, desc: 'Product roadmaps & UX feature ideation' },
-    { id: 'general', label: 'General Task', icon: MessageSquare, desc: 'Multi-turn non-coding reasoning' },
+    {
+      id: 'image',
+      label: 'Images & Assets',
+      icon: ImageIcon,
+      desc: 'Generate icons, UI illustrations & logos'
+    },
+    {
+      id: 'research',
+      label: 'Deep Research',
+      icon: Search,
+      desc: 'Web-grounded technical research & comparisons'
+    },
+    {
+      id: 'docs',
+      label: 'Docs & Specs',
+      icon: FileText,
+      desc: 'PRDs, ADRs, OpenAPI specs & READMEs'
+    },
+    {
+      id: 'brainstorm',
+      label: 'Brainstorm',
+      icon: Lightbulb,
+      desc: 'Product roadmaps & UX feature ideation'
+    },
+    {
+      id: 'general',
+      label: 'General Task',
+      icon: MessageSquare,
+      desc: 'Multi-turn non-coding reasoning'
+    }
   ] as const;
 
-
-
-  const filteredHistory = taskChatHistory.filter((msg) => {
+  const filteredHistory = taskChatHistory.filter(msg => {
     if (filterTaskType === 'all') return true;
     return msg.taskType === filterTaskType;
   });
@@ -314,7 +363,9 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
   const isFullscreen = mode === 'fullscreen' || activeView === 'studio';
 
   return (
-    <div className={`flex flex-col h-full bg-[#161B22] text-[#C9D1D9] select-none ${isFullscreen ? 'w-full' : 'w-full border-r border-[#30363D]'}`}>
+    <div
+      className={`flex flex-col h-full bg-[#161B22] text-[#C9D1D9] select-none ${isFullscreen ? 'w-full' : 'w-full border-r border-[#30363D]'}`}
+    >
       {/* Top Header */}
       <div className="p-3 bg-[#0D1117] border-b border-[#30363D] flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -326,7 +377,6 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
               <span className="text-xs font-bold uppercase tracking-wider text-white truncate">
                 Multimodal Task Studio
               </span>
-
             </div>
             <p className="text-[10px] text-[#8B949E] truncate hidden sm:block">
               Dedicated chat for images, deep research & specs
@@ -338,7 +388,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
           {/* Quick Model Selector in Header */}
           <TaskModelSelector
             selectedModelId={selectedTaskModelId}
-            onSelectModel={(m) => setSelectedTaskModelId(m.id)}
+            onSelectModel={m => setSelectedTaskModelId(m.id)}
             taskType={activeTaskType}
           />
           <AgentModeSelector />
@@ -383,7 +433,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
 
       {/* Task Type Switcher Bar */}
       <div className="bg-[#161B22] border-b border-[#30363D] px-2 py-1.5 flex items-center gap-1 overflow-x-auto scrollbar-none shrink-0">
-        {taskTabs.map((tab) => {
+        {taskTabs.map(tab => {
           const isActive = activeTaskType === tab.id;
           return (
             <button
@@ -424,7 +474,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
           <>
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-[#8B949E]">Aspect Ratio:</span>
-              {(['1:1', '16:9', '9:16', '4:3'] as const).map((ratio) => (
+              {(['1:1', '16:9', '9:16', '4:3'] as const).map(ratio => (
                 <button
                   key={ratio}
                   onClick={() => setAspectRatio(ratio)}
@@ -444,7 +494,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
                 <span className="text-[11px] text-[#8B949E]">Model:</span>
                 <TaskModelSelector
                   selectedModelId={selectedTaskModelId}
-                  onSelectModel={(m) => setSelectedTaskModelId(m.id)}
+                  onSelectModel={m => setSelectedTaskModelId(m.id)}
                   taskType="image"
                 />
               </div>
@@ -453,7 +503,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
                 <span className="text-[11px] text-[#8B949E]">Style:</span>
                 <select
                   value={imageStyle}
-                  onChange={(e) => setImageStyle(e.target.value)}
+                  onChange={e => setImageStyle(e.target.value)}
                   className="bg-[#21262D] border border-[#30363D] text-[#C9D1D9] text-[11px] rounded px-2 py-0.5 focus:outline-none focus:border-[#58A6FF]"
                 >
                   <option value="modern">Modern Flat / UI</option>
@@ -472,7 +522,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
           <>
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-[#8B949E]">Depth:</span>
-              {(['detailed', 'brief', 'comprehensive'] as const).map((d) => (
+              {(['detailed', 'brief', 'comprehensive'] as const).map(d => (
                 <button
                   key={d}
                   onClick={() => setResearchDepth(d)}
@@ -492,7 +542,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
                 <span className="text-[11px] text-[#8B949E]">Model:</span>
                 <TaskModelSelector
                   selectedModelId={selectedTaskModelId}
-                  onSelectModel={(m) => setSelectedTaskModelId(m.id)}
+                  onSelectModel={m => setSelectedTaskModelId(m.id)}
                   taskType="research"
                 />
               </div>
@@ -513,7 +563,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
                 { id: 'adr', label: 'Architecture Decision' },
                 { id: 'api', label: 'API Spec' },
                 { id: 'readme', label: 'README.md' }
-              ].map((d) => (
+              ].map(d => (
                 <button
                   key={d.id}
                   onClick={() => setDocFormat(d.id as any)}
@@ -531,7 +581,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
               <span className="text-[11px] text-[#8B949E]">Model:</span>
               <TaskModelSelector
                 selectedModelId={selectedTaskModelId}
-                onSelectModel={(m) => setSelectedTaskModelId(m.id)}
+                onSelectModel={m => setSelectedTaskModelId(m.id)}
                 taskType="docs"
               />
             </div>
@@ -548,7 +598,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
               <span className="text-[11px] text-[#8B949E]">Model:</span>
               <TaskModelSelector
                 selectedModelId={selectedTaskModelId}
-                onSelectModel={(m) => setSelectedTaskModelId(m.id)}
+                onSelectModel={m => setSelectedTaskModelId(m.id)}
                 taskType="brainstorm"
               />
             </div>
@@ -565,7 +615,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
               <span className="text-[11px] text-[#8B949E]">Model:</span>
               <TaskModelSelector
                 selectedModelId={selectedTaskModelId}
-                onSelectModel={(m) => setSelectedTaskModelId(m.id)}
+                onSelectModel={m => setSelectedTaskModelId(m.id)}
                 taskType="general"
               />
             </div>
@@ -575,7 +625,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
 
       {/* Messages Stream */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 select-text">
-        {filteredHistory.map((msg) => {
+        {filteredHistory.map(msg => {
           const isUser = msg.role === 'user';
           const hasImages = msg.images && msg.images.length > 0;
           const hasSources = msg.sources && msg.sources.length > 0;
@@ -796,7 +846,9 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
             <div className="p-3.5 rounded-lg bg-[#0D1117] border border-[#30363D] text-xs flex flex-col gap-2">
               <div className="flex items-center gap-2 text-[#58A6FF]">
                 <RefreshCw size={14} className="animate-spin" />
-                <span className="font-medium text-[12px]">{loadingPhase || 'Processing multimodal task...'}</span>
+                <span className="font-medium text-[12px]">
+                  {loadingPhase || 'Processing multimodal task...'}
+                </span>
               </div>
               <div className="h-1.5 w-full bg-[#21262D] rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-[#1F6FEB] via-[#8A2BE2] to-[#58A6FF] rounded-full animate-pulse w-3/4"></div>
@@ -805,8 +857,8 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
                 {activeTaskType === 'image'
                   ? 'Rendering generative asset with Gemini Image Engine...'
                   : activeTaskType === 'research'
-                  ? 'Scanning web indices, analyzing comparisons & synthesizing citations...'
-                  : 'Synthesizing structured Markdown document...'}
+                    ? 'Scanning web indices, analyzing comparisons & synthesizing citations...'
+                    : 'Synthesizing structured Markdown document...'}
               </span>
             </div>
           </div>
@@ -817,59 +869,67 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
 
       {/* Input Composer */}
       <form
-        onSubmit={(e) => handleSend(e)}
+        onSubmit={e => handleSend(e)}
         className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5 mb-2.5"
       >
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder={
-              activeTaskType === 'image'
-                ? 'Describe the image, icon, logo, or UI asset to generate...'
-                : activeTaskType === 'research'
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={
+            activeTaskType === 'image'
+              ? 'Describe the image, icon, logo, or UI asset to generate...'
+              : activeTaskType === 'research'
                 ? 'Enter your deep technical research query (e.g., Zustand vs Redux, OAuth2 PKCE)...'
                 : activeTaskType === 'docs'
-                ? 'Describe the PRD, architecture specification, or README to write...'
-                : activeTaskType === 'brainstorm'
-                ? 'Describe what you want to brainstorm (features, UX flows, sprint plans)...'
-                : 'Ask anything for non-coding tasks (Enter to send, Shift+Enter for newline)...'
-            }
-            rows={isFullscreen ? 3 : 2}
-            className="w-full bg-transparent text-xs sm:text-[13px] text-white placeholder:text-[#484F58] resize-none focus:outline-none px-1.5 py-1"
-          />
+                  ? 'Describe the PRD, architecture specification, or README to write...'
+                  : activeTaskType === 'brainstorm'
+                    ? 'Describe what you want to brainstorm (features, UX flows, sprint plans)...'
+                    : 'Ask anything for non-coding tasks (Enter to send, Shift+Enter for newline)...'
+          }
+          rows={isFullscreen ? 3 : 2}
+          className="w-full bg-transparent text-xs sm:text-[13px] text-white placeholder:text-[#484F58] resize-none focus:outline-none px-1.5 py-1"
+        />
 
-          <div className="flex items-center justify-between pt-1 border-t border-[#30363D]/60 mt-1">
-            <div className="flex items-center gap-1.5 text-[10px] text-[#8B949E] flex-wrap">
-              <span className="capitalize font-medium text-[#58A6FF]">{activeTaskType} Mode</span>
-              <span className="text-[#30363D]">•</span>
-              <div className="flex items-center gap-1 text-white bg-[#0D1117] border border-[#30363D] px-2 py-0.5 rounded">
-                <ModelIcon type={getModelById(selectedTaskModelId).iconType} size={11} className="p-0.5" />
-                <span className="font-medium text-[10px] truncate max-w-[130px]">{getModelById(selectedTaskModelId).name}</span>
-              </div>
-              {activeTaskType === 'image' && (
-                <span className="text-[#8B949E]">• {aspectRatio} • {imageStyle}</span>
-              )}
-              {activeTaskType === 'research' && (
-                <span className="text-[#8B949E]">• {researchDepth} search</span>
-              )}
+        <div className="flex items-center justify-between pt-1 border-t border-[#30363D]/60 mt-1">
+          <div className="flex items-center gap-1.5 text-[10px] text-[#8B949E] flex-wrap">
+            <span className="capitalize font-medium text-[#58A6FF]">{activeTaskType} Mode</span>
+            <span className="text-[#30363D]">•</span>
+            <div className="flex items-center gap-1 text-white bg-[#0D1117] border border-[#30363D] px-2 py-0.5 rounded">
+              <ModelIcon
+                type={getModelById(selectedTaskModelId).iconType}
+                size={11}
+                className="p-0.5"
+              />
+              <span className="font-medium text-[10px] truncate max-w-[130px]">
+                {getModelById(selectedTaskModelId).name}
+              </span>
             </div>
-
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="flex items-center gap-1.5 px-3 py-1 bg-[#1F6FEB] hover:bg-[#388BFD] disabled:opacity-40 disabled:hover:bg-[#1F6FEB] text-white rounded text-xs font-medium transition-colors"
-            >
-              <span>Generate</span>
-              <Send size={12} />
-            </button>
+            {activeTaskType === 'image' && (
+              <span className="text-[#8B949E]">
+                • {aspectRatio} • {imageStyle}
+              </span>
+            )}
+            {activeTaskType === 'research' && (
+              <span className="text-[#8B949E]">• {researchDepth} search</span>
+            )}
           </div>
-        </form>
+
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="flex items-center gap-1.5 px-3 py-1 bg-[#1F6FEB] hover:bg-[#388BFD] disabled:opacity-40 disabled:hover:bg-[#1F6FEB] text-white rounded text-xs font-medium transition-colors"
+          >
+            <span>Generate</span>
+            <Send size={12} />
+          </button>
+        </div>
+      </form>
 
       {/* Image Zoom Lightbox Modal */}
       {zoomImage && (
@@ -879,7 +939,7 @@ export const TaskStudio: React.FC<TaskStudioProps> = ({ mode = 'sidebar' }) => {
         >
           <div
             className="relative max-w-4xl max-h-[90vh] bg-[#161B22] border border-[#30363D] rounded-xl overflow-hidden flex flex-col shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <div className="p-3 bg-[#0D1117] border-b border-[#30363D] flex items-center justify-between">
               <span className="text-xs font-medium text-[#C9D1D9] truncate max-w-lg">

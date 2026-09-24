@@ -11,7 +11,10 @@ import {
 } from './workspaceFs';
 
 const okResponse = (body: unknown) =>
-  new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
 
 describe('workspaceFs client', () => {
   const fetchMock = vi.fn();
@@ -61,7 +64,9 @@ describe('workspaceFs client', () => {
   });
 
   it('listWorkspaceTree surfaces the truncated flag', async () => {
-    fetchMock.mockResolvedValue(okResponse({ entries: [{ name: 'a.ts', type: 'file' }], truncated: true }));
+    fetchMock.mockResolvedValue(
+      okResponse({ entries: [{ name: 'a.ts', type: 'file' }], truncated: true })
+    );
     const result = await listWorkspaceTree();
     expect(result.truncated).toBe(true);
     expect(result.entries).toHaveLength(1);
@@ -89,7 +94,9 @@ describe('workspaceFs client', () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ error: 'Path escapes the workspace root.' }), { status: 400 })
     );
-    await expect(readWorkspaceFile('/../secret')).rejects.toThrow('Path escapes the workspace root.');
+    await expect(readWorkspaceFile('/../secret')).rejects.toThrow(
+      'Path escapes the workspace root.'
+    );
   });
 
   it('throws a generic message when the response has no JSON body', async () => {

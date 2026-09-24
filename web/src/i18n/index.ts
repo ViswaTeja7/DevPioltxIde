@@ -18,7 +18,9 @@ export const resolveInitialLanguage = (): SupportedLanguage => {
     // localStorage unavailable (e.g. hardened/privacy mode): fall through.
   }
   const candidate = (
-    override || (typeof navigator !== 'undefined' ? navigator.language : 'en') || 'en'
+    override ||
+    (typeof navigator !== 'undefined' ? navigator.language : 'en') ||
+    'en'
   )
     .slice(0, 2)
     .toLowerCase();

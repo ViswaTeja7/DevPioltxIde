@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, X, SplitSquareHorizontal, RotateCw, ChevronDown, SquareTerminal } from 'lucide-react';
+import {
+  Plus,
+  X,
+  SplitSquareHorizontal,
+  RotateCw,
+  ChevronDown,
+  SquareTerminal
+} from 'lucide-react';
 import { TerminalView, TerminalState } from './TerminalView';
 
 interface ShellOption {
@@ -67,11 +74,32 @@ interface TerminalPaneProps {
 // Each pane memoizes its own callbacks, because TerminalView tears down and reconnects
 // its shell whenever its handler props change identity.
 const TerminalPane = React.memo(
-  ({ sessionId, pane, sessionActive, showChrome, canSplit, onState, onTitle, onShellLabel, onSplit, onRelaunch, onClosePane }: TerminalPaneProps) => {
+  ({
+    sessionId,
+    pane,
+    sessionActive,
+    showChrome,
+    canSplit,
+    onState,
+    onTitle,
+    onShellLabel,
+    onSplit,
+    onRelaunch,
+    onClosePane
+  }: TerminalPaneProps) => {
     const { t } = useTranslation();
-    const handleState = useCallback((state: TerminalState) => onState(sessionId, pane.id, state), [onState, sessionId, pane.id]);
-    const handleTitle = useCallback((title: string) => onTitle(sessionId, title), [onTitle, sessionId]);
-    const handleShell = useCallback((label: string) => onShellLabel(sessionId, label), [onShellLabel, sessionId]);
+    const handleState = useCallback(
+      (state: TerminalState) => onState(sessionId, pane.id, state),
+      [onState, sessionId, pane.id]
+    );
+    const handleTitle = useCallback(
+      (title: string) => onTitle(sessionId, title),
+      [onTitle, sessionId]
+    );
+    const handleShell = useCallback(
+      (label: string) => onShellLabel(sessionId, label),
+      [onShellLabel, sessionId]
+    );
     const closed = pane.state === 'closed';
 
     return (
@@ -166,7 +194,10 @@ export const TerminalPanel = () => {
     setSessions(previous =>
       previous.map(session =>
         session.id === sessionId
-          ? { ...session, panes: session.panes.map(pane => (pane.id === paneId ? { ...pane, state } : pane)) }
+          ? {
+              ...session,
+              panes: session.panes.map(pane => (pane.id === paneId ? { ...pane, state } : pane))
+            }
           : session
       )
     );
@@ -186,7 +217,9 @@ export const TerminalPanel = () => {
     if (!trimmed) return;
     setSessions(previous =>
       previous.map(session =>
-        session.id === sessionId && session.title.startsWith('terminal') ? { ...session, title: trimmed } : session
+        session.id === sessionId && session.title.startsWith('terminal')
+          ? { ...session, title: trimmed }
+          : session
       )
     );
   }, []);
@@ -249,7 +282,11 @@ export const TerminalPanel = () => {
               ...session,
               panes: session.panes.map(pane =>
                 pane.id === paneId
-                  ? { ...pane, state: 'connecting' as TerminalState, generation: pane.generation + 1 }
+                  ? {
+                      ...pane,
+                      state: 'connecting' as TerminalState,
+                      generation: pane.generation + 1
+                    }
                   : pane
               )
             }
@@ -279,9 +316,10 @@ export const TerminalPanel = () => {
   const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
-    const next = event.key === 'ArrowRight'
-      ? (index + 1) % sessions.length
-      : (index - 1 + sessions.length) % sessions.length;
+    const next =
+      event.key === 'ArrowRight'
+        ? (index + 1) % sessions.length
+        : (index - 1 + sessions.length) % sessions.length;
     setActiveId(sessions[next].id);
   };
 
@@ -399,10 +437,16 @@ export const TerminalPanel = () => {
                       className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-[#F2F2F2] hover:bg-[#3E3E3E]"
                       role="menuitem"
                     >
-                      <SquareTerminal size={12} className="shrink-0 opacity-70" aria-hidden="true" />
+                      <SquareTerminal
+                        size={12}
+                        className="shrink-0 opacity-70"
+                        aria-hidden="true"
+                      />
                       <span className="min-w-0 flex-1 truncate">{shell.label}</span>
                       {shell.id === selectedShellId && (
-                        <span className="text-[10px] text-[#ADADAD]">{t('terminal.defaultProfile')}</span>
+                        <span className="text-[10px] text-[#ADADAD]">
+                          {t('terminal.defaultProfile')}
+                        </span>
                       )}
                     </button>
                   ))}

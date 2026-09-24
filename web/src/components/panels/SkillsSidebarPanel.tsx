@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { 
-  BrainCircuit, 
-  Plus, 
-  Search, 
-  CheckCircle2, 
-  ExternalLink, 
-  Sparkles, 
-  BookOpen, 
-  Sliders, 
-  ShieldAlert, 
-  Cpu, 
-  Code2, 
-  Layers, 
+import {
+  BrainCircuit,
+  Plus,
+  Search,
+  CheckCircle2,
+  ExternalLink,
+  Sparkles,
+  BookOpen,
+  Sliders,
+  ShieldAlert,
+  Cpu,
+  Code2,
+  Layers,
   RotateCcw,
   GraduationCap
 } from 'lucide-react';
@@ -19,21 +19,21 @@ import { useIDE } from '../../context/IDEContext';
 import { SkillCategory, AgentSkill } from '../../types';
 
 export const SkillsSidebarPanel = () => {
-  const { 
-    skills, 
-    toggleSkill, 
+  const {
+    skills,
+    toggleSkill,
     resetSkills,
-    trainingProfile, 
+    trainingProfile,
     updateTrainingProfile,
     trainingExamples,
-    setActiveView 
+    setActiveView
   } = useIDE();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const enabledCount = skills.filter((s) => s.enabled).length;
-  const trainedExCount = trainingExamples.filter((e) => e.enabled).length;
+  const enabledCount = skills.filter(s => s.enabled).length;
+  const trainedExCount = trainingExamples.filter(e => e.enabled).length;
 
   const categories: { id: string; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -45,12 +45,12 @@ export const SkillsSidebarPanel = () => {
     { id: 'custom', label: 'Custom' }
   ];
 
-  const filteredSkills = skills.filter((skill) => {
-    const matchesSearch = 
+  const filteredSkills = skills.filter(skill => {
+    const matchesSearch =
       skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       skill.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       skill.triggers.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+
     const matchesCategory = selectedCategory === 'all' || skill.category === selectedCategory;
 
     return matchesSearch && matchesCategory;
@@ -114,7 +114,7 @@ export const SkillsSidebarPanel = () => {
         </div>
         <select
           value={trainingProfile.persona}
-          onChange={(e) => updateTrainingProfile({ persona: e.target.value as any })}
+          onChange={e => updateTrainingProfile({ persona: e.target.value as any })}
           className="w-full bg-[#161B22] border border-[#30363D] rounded px-2 py-1 text-xs text-white outline-none focus:border-[#58A6FF]"
         >
           <option value="senior-architect">Senior Systems Architect</option>
@@ -133,13 +133,13 @@ export const SkillsSidebarPanel = () => {
             type="text"
             placeholder="Search skills or triggers..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-[#0D1117] text-xs pl-7 pr-2 py-1.5 rounded border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none placeholder-[#484F58]"
           />
         </div>
 
         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-          {categories.map((cat) => (
+          {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
@@ -162,21 +162,19 @@ export const SkillsSidebarPanel = () => {
           <span>{enabledCount} Active</span>
         </div>
 
-        {filteredSkills.map((skill) => (
+        {filteredSkills.map(skill => (
           <div
             key={skill.id}
             className={`p-2 rounded border transition-all ${
-              skill.enabled 
-                ? 'bg-[#0D1117] border-[#30363D] hover:border-[#58A6FF]/50' 
+              skill.enabled
+                ? 'bg-[#0D1117] border-[#30363D] hover:border-[#58A6FF]/50'
                 : 'bg-[#161B22] border-[#21262D] opacity-60 hover:opacity-90'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="shrink-0">{getCategoryIcon(skill.category)}</span>
-                <span className="font-medium text-white truncate text-xs">
-                  {skill.name}
-                </span>
+                <span className="font-medium text-white truncate text-xs">{skill.name}</span>
               </div>
 
               {/* Toggle Switch */}
@@ -201,7 +199,7 @@ export const SkillsSidebarPanel = () => {
 
             <div className="mt-2 flex items-center justify-between gap-1 text-[10px] text-[#8B949E]">
               <div className="flex items-center gap-1 flex-wrap">
-                {skill.triggers.slice(0, 3).map((t) => (
+                {skill.triggers.slice(0, 3).map(t => (
                   <span
                     key={t}
                     className="px-1 py-0.2 rounded bg-[#21262D] text-[#8B949E] font-mono text-[9px]"
@@ -210,9 +208,7 @@ export const SkillsSidebarPanel = () => {
                   </span>
                 ))}
                 {skill.triggers.length > 3 && (
-                  <span className="text-[9px] text-[#8B949E]">
-                    +{skill.triggers.length - 3}
-                  </span>
+                  <span className="text-[9px] text-[#8B949E]">+{skill.triggers.length - 3}</span>
                 )}
               </div>
 
@@ -251,7 +247,7 @@ export const SkillsSidebarPanel = () => {
         </button>
 
         <div className="flex items-center justify-between pt-1 text-[10px] text-[#8B949E]">
-          <button 
+          <button
             onClick={resetSkills}
             className="hover:text-white flex items-center gap-1 transition-colors"
             title="Reset to default built-in skills"

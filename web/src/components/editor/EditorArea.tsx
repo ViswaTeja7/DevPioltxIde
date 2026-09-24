@@ -6,19 +6,30 @@ import { FileNode } from '../../types';
 import { getLanguageFromName } from '../../lib/language';
 
 export const EditorArea = () => {
-  const { openFiles, activeFileId, setActiveFileId, closeFile, updateFileContent, createNewFile, addFolderToTree } = useIDE();
+  const {
+    openFiles,
+    activeFileId,
+    setActiveFileId,
+    closeFile,
+    updateFileContent,
+    createNewFile,
+    addFolderToTree
+  } = useIDE();
 
   const handleNewFile = useCallback(() => {
     createNewFile();
   }, [createNewFile]);
 
-  const buildFileTree = async (dirHandle: FileSystemDirectoryHandle, basePath: string = ''): Promise<FileNode> => {
+  const buildFileTree = async (
+    dirHandle: FileSystemDirectoryHandle,
+    basePath: string = ''
+  ): Promise<FileNode> => {
     const children: FileNode[] = [];
-    
+
     // Use entries() which returns an async iterable
     for await (const [name, handle] of (dirHandle as any).entries()) {
       const fullPath = basePath ? `${basePath}/${name}` : name;
-      
+
       if (handle.kind === 'file') {
         const file = await handle.getFile();
         const content = await file.text();
@@ -41,7 +52,7 @@ export const EditorArea = () => {
         });
       }
     }
-    
+
     return {
       id: `folder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: dirHandle.name,
@@ -64,13 +75,13 @@ export const EditorArea = () => {
         console.warn('showDirectoryPicker failed, falling back to file input:', err);
       }
     }
-    
+
     // Fallback: use file input with webkitdirectory
     const input = document.createElement('input');
     input.type = 'file';
     input.webkitdirectory = true;
     input.multiple = true;
-    input.onchange = async (e) => {
+    input.onchange = async e => {
       const files = (e.target as HTMLInputElement).files;
       if (files && files.length > 0) {
         // Build a tree structure from the flat file list
@@ -81,23 +92,25 @@ export const EditorArea = () => {
           path: '',
           children: []
         };
-        
+
         const pathMap = new Map<string, FileNode>();
         pathMap.set('', rootFolder);
-        
+
         // Sort files by path to ensure parents are created before children
-        const sortedFiles = Array.from(files).sort((a, b) => a.webkitRelativePath.localeCompare(b.webkitRelativePath));
-        
+        const sortedFiles = Array.from(files).sort((a, b) =>
+          a.webkitRelativePath.localeCompare(b.webkitRelativePath)
+        );
+
         for (const file of sortedFiles) {
           const relativePath = file.webkitRelativePath;
           const pathParts = relativePath.split('/');
           let currentPath = '';
-          
+
           for (let i = 0; i < pathParts.length; i++) {
             const part = pathParts[i];
             const parentPath = currentPath;
             currentPath = parentPath ? `${parentPath}/${part}` : part;
-            
+
             if (!pathMap.has(currentPath)) {
               const isFile = i === pathParts.length - 1;
               const newNode: FileNode = {
@@ -110,7 +123,7 @@ export const EditorArea = () => {
                 children: isFile ? undefined : []
               };
               pathMap.set(currentPath, newNode);
-              
+
               // Add to parent
               const parent = pathMap.get(parentPath);
               if (parent && parent.children) {
@@ -119,7 +132,7 @@ export const EditorArea = () => {
             }
           }
         }
-        
+
         addFolderToTree(rootFolder);
       }
     };
@@ -129,7 +142,8 @@ export const EditorArea = () => {
   const activeFile = openFiles.find(f => f.id === activeFileId);
 
   const getFileIcon = (name: string) => {
-    if (name.endsWith('.ts') || name.endsWith('.tsx')) return <FileCode size={14} className="text-[#58A6FF]" />;
+    if (name.endsWith('.ts') || name.endsWith('.tsx'))
+      return <FileCode size={14} className="text-[#58A6FF]" />;
     if (name.endsWith('.json')) return <FileJson size={14} className="text-[#D2A8FF]" />;
     if (name.endsWith('Dockerfile')) return <File size={14} className="text-[#58A6FF]" />;
     return <FileText size={14} className="text-[#8B949E]" />;
@@ -158,7 +172,7 @@ export const EditorArea = () => {
         'editorSuggestWidget.background': '#161B22',
         'editorSuggestWidget.border': '#30363D',
         'editorWidget.background': '#161B22',
-        'editorWidget.border': '#30363D',
+        'editorWidget.border': '#30363D'
       }
     });
   };
@@ -179,7 +193,7 @@ export const EditorArea = () => {
                   {getFileIcon(file.name)}
                   <span className="text-sm truncate flex-1">{file.name}</span>
                   <button
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       closeFile(file.id);
                     }}
@@ -200,7 +214,7 @@ export const EditorArea = () => {
                 value={activeFile.content || ''}
                 theme="devpilot-dark"
                 beforeMount={handleEditorWillMount}
-                onChange={(value) => {
+                onChange={value => {
                   if (activeFile && value !== undefined) {
                     updateFileContent(activeFile.id, value);
                   }
@@ -208,13 +222,14 @@ export const EditorArea = () => {
                 options={{
                   minimap: { enabled: true },
                   fontSize: 13,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Courier New', monospace",
+                  fontFamily:
+                    "'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Courier New', monospace",
                   wordWrap: 'on',
                   padding: { top: 16 },
                   scrollBeyondLastLine: false,
                   smoothScrolling: true,
                   cursorBlinking: 'smooth',
-                  renderLineHighlight: 'all',
+                  renderLineHighlight: 'all'
                 }}
               />
             )}

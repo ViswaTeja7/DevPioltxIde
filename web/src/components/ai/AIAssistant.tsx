@@ -33,13 +33,13 @@ function looksLikeCorrection(text: string): boolean {
 }
 
 export const AIAssistant = () => {
-  const { 
-    chatHistory, 
-    addChatMessage, 
-    llmConfig, 
-    selectedModel, 
-    selectModel, 
-    setActiveActivity, 
+  const {
+    chatHistory,
+    addChatMessage,
+    llmConfig,
+    selectedModel,
+    selectModel,
+    setActiveActivity,
     setIsModelSelectorOpen,
     skills,
     trainingProfile,
@@ -59,7 +59,9 @@ export const AIAssistant = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [savedTrainingId, setSavedTrainingId] = useState<string | null>(null);
   // Commands the agent proposed but the server refused to run without a human saying yes.
-  const [approvals, setApprovals] = useState<Array<{ command: string; output?: string; running?: boolean }>>([]);
+  const [approvals, setApprovals] = useState<
+    Array<{ command: string; output?: string; running?: boolean }>
+  >([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,10 +69,22 @@ export const AIAssistant = () => {
   // if the user is only in plan/ask mode, switch to agent mode so the run_command tool
   // actually executes rather than just describing the command.
   const QUICK_ACTIONS = [
-    { label: 'Install', text: "Use the run_command tool to install this project's dependencies (detect npm/yarn/pnpm/bun from the lockfile) and report the result." },
-    { label: 'Build', text: "Use the run_command tool to build this project and report whether it passed, including any errors." },
-    { label: 'Test', text: "Use the run_command tool to run the project's test suite and report pass/fail." },
-    { label: 'Dev server', text: "Use the run_command tool to start the dev server and report the local URL/port it bound to." }
+    {
+      label: 'Install',
+      text: "Use the run_command tool to install this project's dependencies (detect npm/yarn/pnpm/bun from the lockfile) and report the result."
+    },
+    {
+      label: 'Build',
+      text: 'Use the run_command tool to build this project and report whether it passed, including any errors.'
+    },
+    {
+      label: 'Test',
+      text: "Use the run_command tool to run the project's test suite and report pass/fail."
+    },
+    {
+      label: 'Dev server',
+      text: 'Use the run_command tool to start the dev server and report the local URL/port it bound to.'
+    }
   ];
 
   const runQuickAction = (instruction: string) => {
@@ -90,11 +104,17 @@ export const AIAssistant = () => {
         body: JSON.stringify({ command: entry.command })
       });
       const data = await response.json();
-      const output = data?.ok ? (data.output || '(no output)') : (data?.error || data?.output || 'Command failed.');
-      setApprovals(prev => prev.map((a, i) => (i === index ? { ...a, output, running: false } : a)));
+      const output = data?.ok
+        ? data.output || '(no output)'
+        : data?.error || data?.output || 'Command failed.';
+      setApprovals(prev =>
+        prev.map((a, i) => (i === index ? { ...a, output, running: false } : a))
+      );
     } catch (error: any) {
       setApprovals(prev =>
-        prev.map((a, i) => (i === index ? { ...a, output: error?.message || 'Failed to run.', running: false } : a))
+        prev.map((a, i) =>
+          i === index ? { ...a, output: error?.message || 'Failed to run.', running: false } : a
+        )
       );
     }
   };
@@ -116,11 +136,16 @@ export const AIAssistant = () => {
   }) => {
     // Skip if we already learned this exact prompt, so the training set stays clean.
     const duplicate = trainingExamples.some(
-      e => Array.isArray(e.tags) && e.tags.includes('auto-learned') && e.userPrompt === entry.userPrompt
+      e =>
+        Array.isArray(e.tags) &&
+        e.tags.includes('auto-learned') &&
+        e.userPrompt === entry.userPrompt
     );
     if (duplicate) return;
     addTrainingExample({
-      title: (entry.kind === 'correction' ? 'Correction: ' : 'Failed action: ') + entry.userPrompt.slice(0, 28),
+      title:
+        (entry.kind === 'correction' ? 'Correction: ' : 'Failed action: ') +
+        entry.userPrompt.slice(0, 28),
       category: 'Self-Learned',
       userPrompt: entry.userPrompt,
       idealResponse: entry.idealResponse,
@@ -133,11 +158,11 @@ export const AIAssistant = () => {
     if (e) e.preventDefault();
     const promptToSend = customPrompt || input;
     if (!promptToSend.trim() || isLoading) return;
-    
+
     const userMessage = promptToSend;
     addChatMessage({
       role: 'user',
-      content: userMessage,
+      content: userMessage
     });
     setInput('');
     setIsLoading(true);
@@ -160,10 +185,14 @@ export const AIAssistant = () => {
     }
 
     try {
-      const flattenFiles = (nodes: typeof fileTree): { path: string; content: string; language?: string }[] =>
-        nodes.flatMap(node => node.type === 'folder'
-          ? flattenFiles(node.children || [])
-          : [{ path: node.path, content: node.content || '', language: node.language }]);
+      const flattenFiles = (
+        nodes: typeof fileTree
+      ): { path: string; content: string; language?: string }[] =>
+        nodes.flatMap(node =>
+          node.type === 'folder'
+            ? flattenFiles(node.children || [])
+            : [{ path: node.path, content: node.content || '', language: node.language }]
+        );
       const workspace = flattenFiles(fileTree);
       // In agent and autonomous modes the server runs a real loop, executing each action
       // and feeding results back. Elsewhere a single turn is all that is wanted.
@@ -246,9 +275,10 @@ export const AIAssistant = () => {
         }
       }
 
-      const actionSummary = appliedActions.length || pendingCommands.length
-        ? `\n\n**Agent actions**\n${appliedActions.map(action => `- ${action}`).join('\n')}${pendingCommands.length ? `\n${pendingCommands.map(command => `- \`${command}\` (command execution requires confirmation in the terminal)`).join('\n')}` : ''}`
-        : '';
+      const actionSummary =
+        appliedActions.length || pendingCommands.length
+          ? `\n\n**Agent actions**\n${appliedActions.map(action => `- ${action}`).join('\n')}${pendingCommands.length ? `\n${pendingCommands.map(command => `- \`${command}\` (command execution requires confirmation in the terminal)`).join('\n')}` : ''}`
+          : '';
 
       addChatMessage({
         role: 'agent',
@@ -277,7 +307,7 @@ export const AIAssistant = () => {
   };
 
   const handleSaveToTraining = (msgIndex: number, assistantMsg: any) => {
-    let precedingUserPrompt = "Code task";
+    let precedingUserPrompt = 'Code task';
     for (let i = msgIndex - 1; i >= 0; i--) {
       if (chatHistory[i].role === 'user') {
         precedingUserPrompt = chatHistory[i].content;
@@ -318,12 +348,12 @@ export const AIAssistant = () => {
             <span>{activeSkillsCount} Skills</span>
           </button>
         </div>
-        
+
         {/* Model Selector Dropdown Pill */}
         <ModelSelectorDropdown variant="pill" />
         <AgentModeSelector />
       </div>
-      
+
       {/* Messages List */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
         {chatHistory.map((msg, index) => {
@@ -347,7 +377,9 @@ export const AIAssistant = () => {
                     <ModelIcon type={msgModel.iconType} size={11} className="p-0.5" />
                     <span className="font-semibold text-[#C9D1D9]">DevPilotX</span>
                     <span className="text-[#8B949E]">•</span>
-                    <span className="text-[#58A6FF] font-medium">{msg.modelName || msgModel.name}</span>
+                    <span className="text-[#58A6FF] font-medium">
+                      {msg.modelName || msgModel.name}
+                    </span>
                   </div>
                 )}
               </div>
@@ -357,10 +389,10 @@ export const AIAssistant = () => {
                   isUser
                     ? 'bg-[#1F6FEB] text-white shadow-md rounded-br-none'
                     : isError
-                    ? 'bg-[#F85149]/10 text-[#FF7B72] border border-[#F85149]/30 rounded-bl-none'
-                    : isWarning
-                    ? 'bg-[#E3B341]/10 text-[#F0E6D2] border border-[#E3B341]/30 rounded-bl-none'
-                    : 'bg-[#0D1117] text-[#C9D1D9] border border-[#30363D] shadow-sm rounded-bl-none'
+                      ? 'bg-[#F85149]/10 text-[#FF7B72] border border-[#F85149]/30 rounded-bl-none'
+                      : isWarning
+                        ? 'bg-[#E3B341]/10 text-[#F0E6D2] border border-[#E3B341]/30 rounded-bl-none'
+                        : 'bg-[#0D1117] text-[#C9D1D9] border border-[#30363D] shadow-sm rounded-bl-none'
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -445,7 +477,9 @@ export const AIAssistant = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-[#58A6FF] animate-ping"></span>
               <span className="w-1.5 h-1.5 rounded-full bg-[#58A6FF] animate-pulse"></span>
               <span className="w-1.5 h-1.5 rounded-full bg-[#58A6FF] animate-pulse"></span>
-              <span className="text-[11px] text-[#8B949E] ml-1">Generating intelligent code response...</span>
+              <span className="text-[11px] text-[#8B949E] ml-1">
+                Generating intelligent code response...
+              </span>
             </div>
           </div>
         )}
@@ -490,9 +524,12 @@ export const AIAssistant = () => {
       {/* Composer Area */}
       <div className="p-3 bg-[#0D1117] border-t border-[#30363D] shrink-0">
         {/* Input Form with Model Indicator */}
-        <form onSubmit={(e) => handleSend(e)} className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5">
+        <form
+          onSubmit={e => handleSend(e)}
+          className="relative flex flex-col bg-[#21262D] border border-[#30363D] focus-within:border-[#58A6FF] rounded-lg transition-colors p-1.5"
+        >
           <div className="flex flex-wrap gap-1.5 px-1.5 pt-1.5">
-            {QUICK_ACTIONS.map((a) => (
+            {QUICK_ACTIONS.map(a => (
               <button
                 key={a.label}
                 type="button"
@@ -506,8 +543,8 @@ export const AIAssistant = () => {
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();

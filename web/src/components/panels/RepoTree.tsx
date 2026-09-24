@@ -54,14 +54,20 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => { setCreateMode('file'); setNewEntryName(''); }}
+              onClick={() => {
+                setCreateMode('file');
+                setNewEntryName('');
+              }}
               className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#21262D]"
               title="New File (Ctrl+N)"
             >
               <FilePlus size={13} />
             </button>
             <button
-              onClick={() => { setCreateMode('folder'); setNewEntryName(''); }}
+              onClick={() => {
+                setCreateMode('folder');
+                setNewEntryName('');
+              }}
               className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#21262D]"
               title="New Folder"
             >
@@ -88,7 +94,7 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
               autoFocus
               placeholder={createMode === 'folder' ? 'folder-name' : 'filename.tsx'}
               value={newEntryName}
-              onChange={(e) => setNewEntryName(e.target.value)}
+              onChange={e => setNewEntryName(e.target.value)}
               className="flex-1 bg-[#161B22] text-xs p-1 border border-[#58A6FF] rounded outline-none text-white font-mono"
             />
             <button
@@ -118,7 +124,7 @@ export const RepoTree = ({ hideHeader = false }: { hideHeader?: boolean }) => {
 
       {/* File Tree List */}
       <div className="flex-1 overflow-y-auto py-1 text-xs select-none">
-        {fileTree.map((node) => (
+        {fileTree.map(node => (
           <FileTreeNode key={node.id} node={node} level={0} />
         ))}
       </div>
@@ -166,7 +172,11 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
 
   const getFileIcon = () => {
     if (isFolder) {
-      return isOpen ? <ChevronDown size={14} className="mr-1 opacity-80" /> : <ChevronRight size={14} className="mr-1 opacity-80" />;
+      return isOpen ? (
+        <ChevronDown size={14} className="mr-1 opacity-80" />
+      ) : (
+        <ChevronRight size={14} className="mr-1 opacity-80" />
+      );
     }
 
     if (node.name.endsWith('.ts') || node.name.endsWith('.tsx')) {
@@ -187,7 +197,7 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
         className={`group flex items-center py-1 cursor-pointer hover:bg-[#21262D] select-none ${isActive ? 'bg-[#21262D] border-l-2 border-[#58A6FF] text-[#58A6FF]' : 'text-[#8B949E] border-l-2 border-transparent'}`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={handleClick}
-        onDoubleClick={(e) => {
+        onDoubleClick={e => {
           e.stopPropagation();
           setRenameValue(node.name);
           setIsRenaming(true);
@@ -199,26 +209,28 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
           <input
             autoFocus
             value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
+            onChange={e => setRenameValue(e.target.value)}
             onBlur={commitRename}
-            onKeyDown={(e) => {
+            onKeyDown={e => {
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') {
                 setRenameValue(node.name);
                 setIsRenaming(false);
               }
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
             className="flex-1 min-w-0 bg-[#0D1117] text-xs px-1 py-0 border border-[#58A6FF] rounded outline-none text-white font-mono"
             aria-label={`Rename ${node.name}`}
           />
         ) : (
-          <span className="truncate flex-1" title={node.path}>{node.name}</span>
+          <span className="truncate flex-1" title={node.path}>
+            {node.name}
+          </span>
         )}
         {!isRenaming && (
           <>
             <button
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation();
                 setRenameValue(node.name);
                 setIsRenaming(true);
@@ -242,7 +254,7 @@ const FileTreeNode: React.FC<{ node: FileNode; level: number }> = ({ node, level
       </div>
       {isFolder && isOpen && node.children && (
         <div>
-          {node.children.map((child) => (
+          {node.children.map(child => (
             <FileTreeNode key={child.id} node={child} level={level + 1} />
           ))}
         </div>

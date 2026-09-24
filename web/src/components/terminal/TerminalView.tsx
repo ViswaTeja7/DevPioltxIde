@@ -275,7 +275,11 @@ export const TerminalView = ({
           >
             <ChevronDown size={13} />
           </button>
-          <button onClick={() => setSearchOpen(false)} className="text-[#8B949E] hover:text-white" title="Close">
+          <button
+            onClick={() => setSearchOpen(false)}
+            className="text-[#8B949E] hover:text-white"
+            title="Close"
+          >
             <X size={13} />
           </button>
         </div>

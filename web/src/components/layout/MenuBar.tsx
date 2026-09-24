@@ -34,7 +34,8 @@ import {
 } from 'lucide-react';
 import { ActivityTab, ActiveView, PanelTab } from '../../types';
 
-export type MenuCategory = 'File' | 'Edit' | 'Selection' | 'View' | 'Go' | 'Run' | 'Terminal' | 'Help';
+export type MenuCategory =
+  'File' | 'Edit' | 'Selection' | 'View' | 'Go' | 'Run' | 'Terminal' | 'Help';
 
 interface MenuItem {
   id: string;
@@ -63,7 +64,7 @@ export const MenuBar = () => {
     activeFileId,
     openFiles,
     selectedModel,
-    setIsModelSelectorOpen,
+    setIsModelSelectorOpen
   } = useIDE();
 
   const [openMenu, setOpenMenu] = useState<MenuCategory | null>(null);
@@ -141,33 +142,33 @@ export const MenuBar = () => {
         label: 'New File',
         icon: Plus,
         shortcut: 'Ctrl+N',
-        action: () => createNewFile(),
+        action: () => createNewFile()
       },
       {
         id: 'open-file',
         label: 'Quick Open File...',
         icon: FileText,
         shortcut: 'Ctrl+P',
-        action: () => selectActivityAndEditor('explorer'),
+        action: () => selectActivityAndEditor('explorer')
       },
       {
         id: 'save-file',
         label: 'Save',
         icon: Save,
         shortcut: 'Ctrl+S',
-        action: handleSave,
+        action: handleSave
       },
       {
         id: 'save-all',
         label: 'Save All',
         shortcut: 'Ctrl+Shift+S',
-        action: handleSave,
+        action: handleSave
       },
       {
         id: 'auto-save',
         label: 'Auto Save',
         checked: autoSave,
-        action: () => setAutoSave(!autoSave),
+        action: () => setAutoSave(!autoSave)
       },
       { id: 'div-1', label: '', divider: true },
       {
@@ -178,7 +179,7 @@ export const MenuBar = () => {
         disabled: !activeFileId,
         action: () => {
           if (activeFileId) closeFile(activeFileId);
-        },
+        }
       },
       {
         id: 'close-all-editors',
@@ -186,7 +187,7 @@ export const MenuBar = () => {
         icon: Trash2,
         shortcut: 'Ctrl+K Ctrl+W',
         disabled: openFiles.length === 0,
-        action: () => closeAllFiles(),
+        action: () => closeAllFiles()
       },
       { id: 'div-2', label: '', divider: true },
       {
@@ -194,15 +195,15 @@ export const MenuBar = () => {
         label: 'Settings & API Keys',
         icon: Settings,
         shortcut: 'Ctrl+,',
-        action: () => setActiveActivity('settings'),
+        action: () => setActiveActivity('settings')
       },
       {
         id: 'train-skills',
         label: 'Train Agent & Claude Skills',
         icon: BrainCircuit,
         shortcut: 'Ctrl+4',
-        action: () => setActiveView('skills'),
-      },
+        action: () => setActiveView('skills')
+      }
     ],
     Edit: [
       {
@@ -210,14 +211,14 @@ export const MenuBar = () => {
         label: 'Undo',
         icon: Undo2,
         shortcut: 'Ctrl+Z',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'redo',
         label: 'Redo',
         icon: Redo2,
         shortcut: 'Ctrl+Y',
-        action: () => {},
+        action: () => {}
       },
       { id: 'div-e1', label: '', divider: true },
       {
@@ -225,21 +226,21 @@ export const MenuBar = () => {
         label: 'Cut',
         icon: Scissors,
         shortcut: 'Ctrl+X',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'copy',
         label: 'Copy',
         icon: Copy,
         shortcut: 'Ctrl+C',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'paste',
         label: 'Paste',
         icon: ClipboardPaste,
         shortcut: 'Ctrl+V',
-        action: () => {},
+        action: () => {}
       },
       { id: 'div-e2', label: '', divider: true },
       {
@@ -247,48 +248,48 @@ export const MenuBar = () => {
         label: 'Find in Project Files',
         icon: Search,
         shortcut: 'Ctrl+Shift+F',
-        action: () => selectActivityAndEditor('search'),
+        action: () => selectActivityAndEditor('search')
       },
       {
         id: 'replace-project',
         label: 'Replace in Project Files',
         icon: Replace,
         shortcut: 'Ctrl+Shift+H',
-        action: () => selectActivityAndEditor('search'),
-      },
+        action: () => selectActivityAndEditor('search')
+      }
     ],
     Selection: [
       {
         id: 'select-all',
         label: 'Select All',
         shortcut: 'Ctrl+A',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'expand-selection',
         label: 'Expand Selection',
         shortcut: 'Shift+Alt+Right',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'shrink-selection',
         label: 'Shrink Selection',
         shortcut: 'Shift+Alt+Left',
-        action: () => {},
+        action: () => {}
       },
       { id: 'div-s1', label: '', divider: true },
       {
         id: 'copy-line-up',
         label: 'Copy Line Up',
         shortcut: 'Shift+Alt+Up',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'copy-line-down',
         label: 'Copy Line Down',
         shortcut: 'Shift+Alt+Down',
-        action: () => {},
-      },
+        action: () => {}
+      }
     ],
     View: [
       {
@@ -297,7 +298,7 @@ export const MenuBar = () => {
         icon: Code,
         shortcut: 'Ctrl+1',
         checked: activeView === 'editor',
-        action: () => setActiveView('editor'),
+        action: () => setActiveView('editor')
       },
       {
         id: 'view-dashboard',
@@ -305,7 +306,7 @@ export const MenuBar = () => {
         icon: LayoutDashboard,
         shortcut: 'Ctrl+2',
         checked: activeView === 'dashboard',
-        action: () => setActiveView('dashboard'),
+        action: () => setActiveView('dashboard')
       },
       {
         id: 'view-studio',
@@ -313,7 +314,7 @@ export const MenuBar = () => {
         icon: Wand2,
         shortcut: 'Ctrl+3',
         checked: activeView === 'studio',
-        action: () => setActiveView('studio'),
+        action: () => setActiveView('studio')
       },
       {
         id: 'view-skills',
@@ -321,7 +322,7 @@ export const MenuBar = () => {
         icon: BrainCircuit,
         shortcut: 'Ctrl+4',
         checked: activeView === 'skills',
-        action: () => setActiveView('skills'),
+        action: () => setActiveView('skills')
       },
       { id: 'div-v1', label: '', divider: true },
       {
@@ -329,50 +330,50 @@ export const MenuBar = () => {
         label: 'Toggle Primary Sidebar',
         icon: PanelLeft,
         shortcut: 'Ctrl+B',
-        action: () => toggleSidebar(),
+        action: () => toggleSidebar()
       },
       {
         id: 'side-explorer',
         label: 'Explorer Panel',
         shortcut: 'Ctrl+Shift+E',
-        action: () => selectActivityAndEditor('explorer'),
+        action: () => selectActivityAndEditor('explorer')
       },
       {
         id: 'side-search',
         label: 'Search Panel',
         shortcut: 'Ctrl+Shift+F',
-        action: () => selectActivityAndEditor('search'),
+        action: () => selectActivityAndEditor('search')
       },
       {
         id: 'side-git',
         label: 'Source Control Panel',
         shortcut: 'Ctrl+Shift+G',
-        action: () => selectActivityAndEditor('git'),
+        action: () => selectActivityAndEditor('git')
       },
       {
         id: 'side-debug',
         label: 'Run and Debug Panel',
         shortcut: 'Ctrl+Shift+D',
-        action: () => selectActivityAndEditor('debug'),
+        action: () => selectActivityAndEditor('debug')
       },
       {
         id: 'side-extensions',
         label: 'Extensions Panel',
         shortcut: 'Ctrl+Shift+X',
-        action: () => selectActivityAndEditor('extensions'),
+        action: () => selectActivityAndEditor('extensions')
       },
       {
         id: 'side-ai',
         label: 'DevPilotX Assistant Panel',
         icon: Sparkles,
         shortcut: 'Ctrl+Shift+A',
-        action: () => selectActivityAndEditor('ai'),
+        action: () => selectActivityAndEditor('ai')
       },
       {
         id: 'side-skills',
         label: 'Agent Skills Panel',
         icon: BrainCircuit,
-        action: () => setActiveActivity('skills'),
+        action: () => setActiveActivity('skills')
       },
       { id: 'div-v2', label: '', divider: true },
       {
@@ -380,33 +381,33 @@ export const MenuBar = () => {
         label: 'Toggle Bottom Terminal Panel',
         icon: Terminal,
         shortcut: 'Ctrl+`',
-        action: () => togglePanel('terminal'),
+        action: () => togglePanel('terminal')
       },
       {
         id: 'switch-model',
         label: 'Switch AI Model...',
         icon: Sparkles,
-        action: () => setIsModelSelectorOpen(true),
-      },
+        action: () => setIsModelSelectorOpen(true)
+      }
     ],
     Go: [
       {
         id: 'go-file',
         label: 'Go to File...',
         shortcut: 'Ctrl+P',
-        action: () => selectActivityAndEditor('explorer'),
+        action: () => selectActivityAndEditor('explorer')
       },
       {
         id: 'go-line',
         label: 'Go to Line / Column...',
         shortcut: 'Ctrl+G',
-        action: () => {},
+        action: () => {}
       },
       {
         id: 'go-symbol',
         label: 'Go to Symbol...',
         shortcut: 'Ctrl+T',
-        action: () => {},
+        action: () => {}
       },
       { id: 'div-g1', label: '', divider: true },
       {
@@ -416,7 +417,7 @@ export const MenuBar = () => {
         action: () => {
           setActivePanel('problems');
           setIsPanelOpen(true);
-        },
+        }
       },
       {
         id: 'prev-problem',
@@ -425,8 +426,8 @@ export const MenuBar = () => {
         action: () => {
           setActivePanel('problems');
           setIsPanelOpen(true);
-        },
-      },
+        }
+      }
     ],
     Run: [
       {
@@ -438,7 +439,7 @@ export const MenuBar = () => {
           selectActivityAndEditor('debug');
           setActivePanel('terminal');
           setIsPanelOpen(true);
-        },
+        }
       },
       {
         id: 'run-without-debug',
@@ -447,21 +448,21 @@ export const MenuBar = () => {
         action: () => {
           setActivePanel('terminal');
           setIsPanelOpen(true);
-        },
+        }
       },
       {
         id: 'stop-debug',
         label: 'Stop Debugging',
         shortcut: 'Shift+F5',
-        action: () => {},
+        action: () => {}
       },
       { id: 'div-r1', label: '', divider: true },
       {
         id: 'open-debug-panel',
         label: 'Open Debug Configurations',
         icon: Bug,
-        action: () => selectActivityAndEditor('debug'),
-      },
+        action: () => selectActivityAndEditor('debug')
+      }
     ],
     Terminal: [
       {
@@ -472,13 +473,13 @@ export const MenuBar = () => {
         action: () => {
           setActivePanel('terminal');
           setIsPanelOpen(true);
-        },
+        }
       },
       {
         id: 'toggle-term',
         label: 'Toggle Terminal Panel',
         shortcut: 'Ctrl+`',
-        action: () => togglePanel('terminal'),
+        action: () => togglePanel('terminal')
       },
       { id: 'div-t1', label: '', divider: true },
       {
@@ -487,7 +488,7 @@ export const MenuBar = () => {
         action: () => {
           setActivePanel('problems');
           setIsPanelOpen(true);
-        },
+        }
       },
       {
         id: 'term-output',
@@ -495,8 +496,8 @@ export const MenuBar = () => {
         action: () => {
           setActivePanel('output');
           setIsPanelOpen(true);
-        },
-      },
+        }
+      }
     ],
     Help: [
       {
@@ -504,37 +505,46 @@ export const MenuBar = () => {
         label: 'Keyboard Shortcuts Reference',
         icon: Keyboard,
         shortcut: 'Ctrl+K Ctrl+S',
-        action: () => setShowShortcutsModal(true),
+        action: () => setShowShortcutsModal(true)
       },
       {
         id: 'help-copilot',
         label: 'Multi-Model DevPilotX Guide',
         icon: Sparkles,
-        action: () => setIsModelSelectorOpen(true),
+        action: () => setIsModelSelectorOpen(true)
       },
       {
         id: 'help-skills',
         label: 'Train Agent & Skills Manual',
         icon: BrainCircuit,
-        action: () => setActiveView('skills'),
+        action: () => setActiveView('skills')
       },
       { id: 'div-h1', label: '', divider: true },
       {
         id: 'about-devpilot',
         label: 'About DevPilotX IDE',
         icon: Info,
-        action: () => setShowAboutModal(true),
-      },
-    ],
+        action: () => setShowAboutModal(true)
+      }
+    ]
   };
 
-  const menuKeys: MenuCategory[] = ['File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Terminal', 'Help'];
+  const menuKeys: MenuCategory[] = [
+    'File',
+    'Edit',
+    'Selection',
+    'View',
+    'Go',
+    'Run',
+    'Terminal',
+    'Help'
+  ];
 
   return (
     <div ref={menuBarRef} className="flex items-center text-xs relative select-none">
       {/* Menu Header Buttons */}
       <div className="flex items-center gap-0.5">
-        {menuKeys.map((menuKey) => {
+        {menuKeys.map(menuKey => {
           const isOpen = openMenu === menuKey;
           return (
             <div key={menuKey} className="relative">
@@ -552,13 +562,13 @@ export const MenuBar = () => {
 
               {/* Dropdown Menu */}
               {isOpen && (
-                <div 
-                  className="absolute top-full left-0 mt-1 z-50 min-w-[240px] bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl py-1 text-[#C9D1D9] text-xs backdrop-blur-md animate-in fade-in zoom-in-95 duration-75 divide-y divide-[#21262D]"
-                >
+                <div className="absolute top-full left-0 mt-1 z-50 min-w-[240px] bg-[#161B22] border border-[#30363D] rounded-lg shadow-2xl py-1 text-[#C9D1D9] text-xs backdrop-blur-md animate-in fade-in zoom-in-95 duration-75 divide-y divide-[#21262D]">
                   <div className="py-0.5">
                     {menuDefinitions[menuKey].map((item, idx) => {
                       if (item.divider) {
-                        return <div key={`div-${idx}`} className="my-1 border-t border-[#30363D]" />;
+                        return (
+                          <div key={`div-${idx}`} className="my-1 border-t border-[#30363D]" />
+                        );
                       }
 
                       return (
@@ -576,7 +586,10 @@ export const MenuBar = () => {
                                 <div className="w-[13px] shrink-0" />
                               )
                             ) : item.icon ? (
-                              <item.icon size={13} className="text-[#8B949E] group-hover:text-white shrink-0" />
+                              <item.icon
+                                size={13}
+                                className="text-[#8B949E] group-hover:text-white shrink-0"
+                              />
                             ) : (
                               <div className="w-[13px] shrink-0" />
                             )}
@@ -600,9 +613,7 @@ export const MenuBar = () => {
       </div>
 
       {saveFlash && (
-        <span className="ml-3 text-[11px] text-[#3FB950] font-medium animate-pulse">
-          Saved!
-        </span>
+        <span className="ml-3 text-[11px] text-[#3FB950] font-medium animate-pulse">Saved!</span>
       )}
 
       {/* Keyboard Shortcuts Modal */}
@@ -635,9 +646,12 @@ export const MenuBar = () => {
                 { key: 'Ctrl + Shift + X', desc: 'Open Extensions Marketplace' },
                 { key: 'Ctrl + 1 / 2 / 3 / 4', desc: 'Switch Editor / Dashboard / Tasks / Skills' },
                 { key: 'F5', desc: 'Start Debugging' },
-                { key: 'F8', desc: 'Next Diagnostics Problem' },
+                { key: 'F8', desc: 'Next Diagnostics Problem' }
               ].map((s, idx) => (
-                <div key={idx} className="flex items-center justify-between py-1.5 border-b border-[#21262D] last:border-0">
+                <div
+                  key={idx}
+                  className="flex items-center justify-between py-1.5 border-b border-[#21262D] last:border-0"
+                >
                   <span className="text-[#C9D1D9]">{s.desc}</span>
                   <span className="font-mono bg-[#0D1117] border border-[#30363D] px-2 py-0.5 rounded text-[11px] text-[#58A6FF]">
                     {s.key}

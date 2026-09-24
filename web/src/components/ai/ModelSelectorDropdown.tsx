@@ -3,7 +3,19 @@ import { useIDE } from '../../context/IDEContext';
 import { getModelById, DEFAULT_MODEL_ID } from '../../constants/models';
 import { ModelIcon } from './ModelIcon';
 import { AIModel } from '../../types';
-import { Search, Check, ChevronDown, Sparkles, Key, ExternalLink, Zap, Brain, SlidersHorizontal, Info, Gift } from 'lucide-react';
+import {
+  Search,
+  Check,
+  ChevronDown,
+  Sparkles,
+  Key,
+  ExternalLink,
+  Zap,
+  Brain,
+  SlidersHorizontal,
+  Info,
+  Gift
+} from 'lucide-react';
 
 interface ModelSelectorDropdownProps {
   variant?: 'pill' | 'compact' | 'full';
@@ -14,7 +26,7 @@ interface ModelSelectorDropdownProps {
 export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   variant = 'pill',
   className = '',
-  onOpenSettings,
+  onOpenSettings
 }) => {
   const { llmConfig, updateLLMConfig, setActiveActivity, availableModels } = useIDE();
   const [isOpen, setIsOpen] = useState(false);
@@ -23,7 +35,9 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedModel = availableModels.find(model => model.id === llmConfig.selectedModelId) || getModelById(DEFAULT_MODEL_ID);
+  const selectedModel =
+    availableModels.find(model => model.id === llmConfig.selectedModelId) ||
+    getModelById(DEFAULT_MODEL_ID);
 
   // Close when clicking outside
   useEffect(() => {
@@ -42,7 +56,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   const handleSelectModel = (model: AIModel) => {
     updateLLMConfig({
       selectedModelId: model.id,
-      provider: model.provider,
+      provider: model.provider
     });
     setIsOpen(false);
     setSearchQuery('');
@@ -58,11 +72,11 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
   };
 
   // Filter models
-  const filteredModels = availableModels.filter((model) => {
+  const filteredModels = availableModels.filter(model => {
     const matchesSearch =
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.providerLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      model.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      model.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
       model.description.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
@@ -70,8 +84,10 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
     if (activeCategory === 'all') return true;
     if (activeCategory === 'image') return model.isImageModel || model.category === 'image';
     if (activeCategory === 'free') return model.isFree;
-    if (activeCategory === 'nvidia') return model.iconType === 'nvidia' || model.name.toLowerCase().includes('nvidia');
-    if (activeCategory === 'minimax') return model.iconType === 'minimax' || model.name.toLowerCase().includes('minimax');
+    if (activeCategory === 'nvidia')
+      return model.iconType === 'nvidia' || model.name.toLowerCase().includes('nvidia');
+    if (activeCategory === 'minimax')
+      return model.iconType === 'minimax' || model.name.toLowerCase().includes('minimax');
     if (activeCategory === 'gemini') return model.provider === 'gemini';
     if (activeCategory === 'anthropic') return model.iconType === 'claude';
     if (activeCategory === 'openai') return model.iconType === 'openai';
@@ -83,8 +99,8 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
     return true;
   });
 
-  const recommendedModels = filteredModels.filter((m) => m.isCopilotRecommended);
-  const otherModels = filteredModels.filter((m) => !m.isCopilotRecommended);
+  const recommendedModels = filteredModels.filter(m => m.isCopilotRecommended);
+  const otherModels = filteredModels.filter(m => !m.isCopilotRecommended);
 
   return (
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
@@ -138,19 +154,20 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
                 <Sparkles size={12} className="text-[#58A6FF]" />
                 Select DevPilotX AI Model
               </span>
-              <span className="text-[10px] text-[#8B949E]">
-                {filteredModels.length} models
-              </span>
+              <span className="text-[10px] text-[#8B949E]">{filteredModels.length} models</span>
             </div>
 
             {/* Search Input */}
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8B949E]" />
+              <Search
+                size={13}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8B949E]"
+              />
               <input
                 ref={inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search models (e.g. Flux, Imagen, Nemotron, Free)..."
                 className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg px-8 py-1.5 text-xs text-white placeholder:text-[#484F58] outline-none focus:border-[#58A6FF] transition-colors"
               />
@@ -178,8 +195,8 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
                 { id: 'deepseek', label: 'DeepSeek' },
                 { id: 'mistral', label: 'Mistral' },
                 { id: 'groq', label: 'Groq' },
-                { id: 'ollama', label: 'Local' },
-              ].map((tab) => (
+                { id: 'ollama', label: 'Local' }
+              ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveCategory(tab.id)}
@@ -228,7 +245,7 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
                       <Sparkles size={11} /> Recommended for Coding & Architecture
                     </div>
                     <div className="space-y-1">
-                      {recommendedModels.map((model) => (
+                      {recommendedModels.map(model => (
                         <ModelListItem
                           key={model.id}
                           model={model}
@@ -248,14 +265,16 @@ export const ModelSelectorDropdown: React.FC<ModelSelectorDropdownProps> = ({
                     </div>
                   )}
                   <div className="space-y-1">
-                    {(activeCategory !== 'all' || searchQuery ? filteredModels : otherModels).map((model) => (
-                      <ModelListItem
-                        key={model.id}
-                        model={model}
-                        isSelected={model.id === selectedModel.id}
-                        onSelect={() => handleSelectModel(model)}
-                      />
-                    ))}
+                    {(activeCategory !== 'all' || searchQuery ? filteredModels : otherModels).map(
+                      model => (
+                        <ModelListItem
+                          key={model.id}
+                          model={model}
+                          isSelected={model.id === selectedModel.id}
+                          onSelect={() => handleSelectModel(model)}
+                        />
+                      )
+                    )}
                   </div>
                 </div>
               </>
@@ -303,7 +322,9 @@ const ModelListItem: React.FC<ModelListItemProps> = ({ model, isSelected, onSele
       <ModelIcon type={model.iconType} size={15} className="mt-0.5 p-1 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`text-xs font-semibold ${isSelected ? 'text-[#58A6FF]' : 'text-white group-hover:text-[#58A6FF]'}`}>
+          <span
+            className={`text-xs font-semibold ${isSelected ? 'text-[#58A6FF]' : 'text-white group-hover:text-[#58A6FF]'}`}
+          >
             {model.name}
           </span>
           <span className="text-[10px] text-[#8B949E]">({model.providerLabel})</span>
@@ -318,12 +339,14 @@ const ModelListItem: React.FC<ModelListItemProps> = ({ model, isSelected, onSele
             </span>
           )}
         </div>
-        <p className="text-[11px] text-[#8B949E] line-clamp-1 mt-0.5">
-          {model.description}
-        </p>
+        <p className="text-[11px] text-[#8B949E] line-clamp-1 mt-0.5">{model.description}</p>
         <div className="flex items-center gap-2 mt-1.5 text-[9px] text-[#8B949E]">
           <span className="flex items-center gap-0.5 bg-[#0D1117] px-1.5 py-0.5 rounded border border-[#30363D]">
-            {model.speed === 'Deep Reasoning' ? <Brain size={10} className="text-[#E3B341]" /> : <Zap size={10} className="text-[#3FB950]" />}
+            {model.speed === 'Deep Reasoning' ? (
+              <Brain size={10} className="text-[#E3B341]" />
+            ) : (
+              <Zap size={10} className="text-[#3FB950]" />
+            )}
             {model.speed}
           </span>
           <span className="bg-[#0D1117] px-1.5 py-0.5 rounded border border-[#30363D]">

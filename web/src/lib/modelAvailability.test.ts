@@ -73,7 +73,12 @@ describe('filterAvailableModels', () => {
   });
 
   it('returns nothing when no provider is linked', () => {
-    const linked: LinkedProviders = { gemini: false, openrouter: false, groq: false, ollama: false };
+    const linked: LinkedProviders = {
+      gemini: false,
+      openrouter: false,
+      groq: false,
+      ollama: false
+    };
     expect(filterAvailableModels(all, linked)).toEqual([]);
   });
 

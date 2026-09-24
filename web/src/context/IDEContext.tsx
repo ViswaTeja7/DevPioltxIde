@@ -1,13 +1,21 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { 
-  ActivityTab, 
-  PanelTab, 
-  FileNode, 
-  ChatMessage, 
-  LLMConfig, 
-  ActiveView, 
-  AIModel, 
-  TaskType, 
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  ReactNode
+} from 'react';
+import {
+  ActivityTab,
+  PanelTab,
+  FileNode,
+  ChatMessage,
+  LLMConfig,
+  ActiveView,
+  AIModel,
+  TaskType,
   TaskChatMessage,
   AgentSkill,
   TrainingExample,
@@ -17,13 +25,21 @@ import {
 } from '../types';
 import { initialFileTree } from '../data';
 import { AI_MODELS, getModelById, DEFAULT_MODEL_ID } from '../constants/models';
-import { 
-  DEFAULT_BUILTIN_SKILLS, 
-  DEFAULT_TRAINING_EXAMPLES, 
-  DEFAULT_TRAINING_PROFILE, 
-  DEFAULT_KNOWLEDGE_DOCS 
+import {
+  DEFAULT_BUILTIN_SKILLS,
+  DEFAULT_TRAINING_EXAMPLES,
+  DEFAULT_TRAINING_PROFILE,
+  DEFAULT_KNOWLEDGE_DOCS
 } from '../constants/skills';
-import { writeWorkspaceFile, deleteWorkspaceFile, readWorkspaceFile, listWorkspaceTree, createWorkspaceDir, renameWorkspacePath, reportFsError } from '../lib/workspaceFs';
+import {
+  writeWorkspaceFile,
+  deleteWorkspaceFile,
+  readWorkspaceFile,
+  listWorkspaceTree,
+  createWorkspaceDir,
+  renameWorkspacePath,
+  reportFsError
+} from '../lib/workspaceFs';
 import { entriesToTree, repathSubtree } from '../lib/fsTree';
 import { getLanguageFromName } from '../lib/language';
 import {
@@ -180,10 +196,12 @@ const getInitialKnowledgeDocs = (): KnowledgeDoc[] => {
 const isFileNode = (value: unknown): value is FileNode => {
   if (!value || typeof value !== 'object') return false;
   const node = value as FileNode;
-  return typeof node.id === 'string'
-    && typeof node.name === 'string'
-    && (node.type === 'file' || node.type === 'folder')
-    && typeof node.path === 'string';
+  return (
+    typeof node.id === 'string' &&
+    typeof node.name === 'string' &&
+    (node.type === 'file' || node.type === 'folder') &&
+    typeof node.path === 'string'
+  );
 };
 
 const sanitizeFileTree = (nodes: unknown): FileNode[] | null => {
@@ -304,16 +322,23 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   const secretSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [agentMode, setAgentModeState] = useState<AgentMode>(() => {
     const saved = localStorage.getItem('devpilotx_agent_mode');
-    return saved === 'plan' || saved === 'ask' || saved === 'agent' || saved === 'autonomous' ? saved : 'agent';
+    return saved === 'plan' || saved === 'ask' || saved === 'agent' || saved === 'autonomous'
+      ? saved
+      : 'agent';
   });
   const [discoveredModels, setDiscoveredModels] = useState<AIModel[]>([]);
   // Providers the backend itself can serve (from its environment). Null until probed.
-  const [serverProviderStatus, setServerProviderStatus] = useState<ServerProviderStatus | null>(null);
+  const [serverProviderStatus, setServerProviderStatus] = useState<ServerProviderStatus | null>(
+    null
+  );
 
   // Trainable Agent & Claude-style Skills System State
   const [skills, setSkills] = useState<AgentSkill[]>(getInitialSkills);
-  const [trainingExamples, setTrainingExamples] = useState<TrainingExample[]>(getInitialTrainingExamples);
-  const [trainingProfile, setTrainingProfile] = useState<AgentTrainingProfile>(getInitialTrainingProfile);
+  const [trainingExamples, setTrainingExamples] = useState<TrainingExample[]>(
+    getInitialTrainingExamples
+  );
+  const [trainingProfile, setTrainingProfile] =
+    useState<AgentTrainingProfile>(getInitialTrainingProfile);
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>(getInitialKnowledgeDocs);
 
   const persistSkills = (newSkills: AgentSkill[]) => {
@@ -336,21 +361,21 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateSkill = (id: string, updates: Partial<AgentSkill>) => {
-    const updated = skills.map((s) => 
+    const updated = skills.map(s =>
       s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
     );
     persistSkills(updated);
   };
 
   const toggleSkill = (id: string) => {
-    const updated = skills.map((s) => 
+    const updated = skills.map(s =>
       s.id === id ? { ...s, enabled: !s.enabled, updatedAt: new Date().toISOString() } : s
     );
     persistSkills(updated);
   };
 
   const deleteSkill = (id: string) => {
-    const updated = skills.filter((s) => s.id !== id);
+    const updated = skills.filter(s => s.id !== id);
     persistSkills(updated);
   };
 
@@ -377,17 +402,17 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateTrainingExample = (id: string, updates: Partial<TrainingExample>) => {
-    const updated = trainingExamples.map((ex) => ex.id === id ? { ...ex, ...updates } : ex);
+    const updated = trainingExamples.map(ex => (ex.id === id ? { ...ex, ...updates } : ex));
     persistTrainingExamples(updated);
   };
 
   const deleteTrainingExample = (id: string) => {
-    const updated = trainingExamples.filter((ex) => ex.id !== id);
+    const updated = trainingExamples.filter(ex => ex.id !== id);
     persistTrainingExamples(updated);
   };
 
   const updateTrainingProfile = (updates: Partial<AgentTrainingProfile>) => {
-    setTrainingProfile((prev) => {
+    setTrainingProfile(prev => {
       const updated = { ...prev, ...updates };
       try {
         localStorage.setItem(TRAINING_PROFILE_STORAGE_KEY, JSON.stringify(updated));
@@ -417,12 +442,14 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateKnowledgeDoc = (id: string, updates: Partial<KnowledgeDoc>) => {
-    const updated = knowledgeDocs.map((d) => d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d);
+    const updated = knowledgeDocs.map(d =>
+      d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d
+    );
     persistKnowledgeDocs(updated);
   };
 
   const deleteKnowledgeDoc = (id: string) => {
-    const updated = knowledgeDocs.filter((d) => d.id !== id);
+    const updated = knowledgeDocs.filter(d => d.id !== id);
     persistKnowledgeDocs(updated);
   };
 
@@ -433,9 +460,10 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     // Discovered catalogs (from /api/provider-models) first, then the static catalogue
     // minus duplicates — then keep only providers that are actually linked to an API,
     // either by a user key or by server-side credentials.
-    const all = [...discoveredModels, ...AI_MODELS.filter(model =>
-      !discoveredModels.some(discovered => discovered.id === model.id)
-    )];
+    const all = [
+      ...discoveredModels,
+      ...AI_MODELS.filter(model => !discoveredModels.some(discovered => discovered.id === model.id))
+    ];
     return filterAvailableModels(all, linkedProviders);
   })();
   // If the saved selection is for a provider that is no longer linked, fall back to the
@@ -512,11 +540,11 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
 
   const selectModel = (modelId: string) => {
     const targetModel = getModelById(modelId);
-    setLLMConfig((prev) => {
+    setLLMConfig(prev => {
       const updated = {
         ...prev,
         selectedModelId: targetModel.id,
-        provider: targetModel.provider,
+        provider: targetModel.provider
       };
       persistLLMConfig(updated);
       return updated;
@@ -573,7 +601,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const updateLLMConfig = (config: Partial<LLMConfig> | ((prev: LLMConfig) => LLMConfig)) => {
-    setLLMConfig((prev) => {
+    setLLMConfig(prev => {
       const updated = typeof config === 'function' ? config(prev) : { ...prev, ...config };
       persistLLMConfig(updated);
       return updated;
@@ -587,7 +615,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
 
   const openFile = (file: FileNode) => {
     if (file.type === 'folder') return;
-    if (!openFiles.find((f) => f.id === file.id)) {
+    if (!openFiles.find(f => f.id === file.id)) {
       setOpenFiles([...openFiles, file]);
     }
     setActiveFileId(file.id);
@@ -601,7 +629,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const closeFile = (fileId: string) => {
-    const newFiles = openFiles.filter((f) => f.id !== fileId);
+    const newFiles = openFiles.filter(f => f.id !== fileId);
     setOpenFiles(newFiles);
     if (activeFileId === fileId) {
       setActiveFileId(newFiles.length > 0 ? newFiles[newFiles.length - 1].id : null);
@@ -625,8 +653,8 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       language: getLanguageFromName(defaultName),
       content: defaultContent
     };
-    setFileTree((prev) => [...prev, newFile]);
-    setOpenFiles((prev) => [...prev, newFile]);
+    setFileTree(prev => [...prev, newFile]);
+    setOpenFiles(prev => [...prev, newFile]);
     setActiveFileId(newFile.id);
     setActiveView('editor');
     setActiveActivity('explorer');
@@ -639,7 +667,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addFolderToTree = (folder: FileNode) => {
-    setFileTree((prev) => [...prev, folder]);
+    setFileTree(prev => [...prev, folder]);
     setActiveView('editor');
     setActiveActivity('explorer');
   };
@@ -650,7 +678,7 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     const path = `/${name}`;
     if (fileTree.some(node => node.type === 'folder' && node.path === path)) return;
     const newFolder: FileNode = { id: `fs-${path}`, name, type: 'folder', path, children: [] };
-    setFileTree((prev) => [...prev, newFolder]);
+    setFileTree(prev => [...prev, newFolder]);
     setActiveView('editor');
     setActiveActivity('explorer');
     createWorkspaceDir(path).catch(error => reportFsError('mkdir', path, error));
@@ -709,7 +737,9 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    renameWorkspacePath(target.path, to).catch(error => reportFsError('rename', target.path, error));
+    renameWorkspacePath(target.path, to).catch(error =>
+      reportFsError('rename', target.path, error)
+    );
   };
 
   // `persist` is false when the caller is only mirroring a change the server already made
@@ -738,29 +768,29 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
 
     const filterTree = (nodes: FileNode[]): FileNode[] => {
       return nodes
-        .filter((node) => {
+        .filter(node => {
           if (node.id === fileId) {
             collectIds(node);
             return false;
           }
           return true;
         })
-        .map((node) => {
+        .map(node => {
           if (node.children && node.children.length > 0) {
             return {
               ...node,
-              children: filterTree(node.children),
+              children: filterTree(node.children)
             };
           }
           return node;
         });
     };
 
-    setFileTree((prev) => filterTree(prev));
+    setFileTree(prev => filterTree(prev));
 
-    setOpenFiles((prevOpen) => {
-      const remaining = prevOpen.filter((f) => !deletedIds.includes(f.id));
-      setActiveFileId((currentActive) => {
+    setOpenFiles(prevOpen => {
+      const remaining = prevOpen.filter(f => !deletedIds.includes(f.id));
+      setActiveFileId(currentActive => {
         if (currentActive && deletedIds.includes(currentActive)) {
           return remaining.length > 0 ? remaining[remaining.length - 1].id : null;
         }
@@ -778,11 +808,11 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
 
   const saveAssetToProject = (fileName: string, content: string, language?: string) => {
     // Check if file already exists in open files or fileTree
-    const existingIndex = fileTree.findIndex((f) => f.name === fileName || f.path === `/${fileName}`);
+    const existingIndex = fileTree.findIndex(f => f.name === fileName || f.path === `/${fileName}`);
     if (existingIndex >= 0) {
       const existingId = fileTree[existingIndex].id;
-      setFileTree((prev) => prev.map((f) => f.id === existingId ? { ...f, content } : f));
-      setOpenFiles((prev) => prev.map((f) => f.id === existingId ? { ...f, content } : f));
+      setFileTree(prev => prev.map(f => (f.id === existingId ? { ...f, content } : f)));
+      setOpenFiles(prev => prev.map(f => (f.id === existingId ? { ...f, content } : f)));
       setActiveFileId(existingId);
       setActiveView('editor');
       return;
@@ -793,11 +823,13 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       name: fileName,
       type: 'file',
       path: `/${fileName}`,
-      language: language || (fileName.endsWith('.md') ? 'markdown' : fileName.endsWith('.svg') ? 'html' : 'plaintext'),
+      language:
+        language ||
+        (fileName.endsWith('.md') ? 'markdown' : fileName.endsWith('.svg') ? 'html' : 'plaintext'),
       content
     };
-    setFileTree((prev) => [...prev, newFile]);
-    setOpenFiles((prev) => [...prev, newFile]);
+    setFileTree(prev => [...prev, newFile]);
+    setOpenFiles(prev => [...prev, newFile]);
     setActiveFileId(newFile.id);
     setActiveView('editor');
   };
@@ -810,14 +842,14 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
     const newMsg: TaskChatMessage = {
       ...msg,
       id: `task-msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: new Date(),
+      timestamp: new Date()
     };
-    setTaskChatHistory((prev) => [...prev, newMsg]);
+    setTaskChatHistory(prev => [...prev, newMsg]);
   };
 
   const clearTaskChatHistory = (taskType?: TaskType) => {
     if (taskType) {
-      setTaskChatHistory((prev) => prev.filter((m) => m.taskType !== taskType));
+      setTaskChatHistory(prev => prev.filter(m => m.taskType !== taskType));
     } else {
       setTaskChatHistory([]);
     }
@@ -843,17 +875,18 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
       timestamp: new Date(),
       modelId: msg.modelId || llmConfig.selectedModelId,
       modelName: msg.modelName || selectedModel.name,
-      provider: msg.provider || selectedModel.providerLabel,
+      provider: msg.provider || selectedModel.providerLabel
     };
-    setChatHistory((prev) => [...prev, newMsg]);
+    setChatHistory(prev => [...prev, newMsg]);
   };
 
   const updateFileContent = (fileId: string, content: string) => {
-    setOpenFiles(prev => prev.map(f => f.id === fileId ? { ...f, content } : f));
-    const updateTree = (nodes: FileNode[]): FileNode[] => nodes.map(node => {
-      if (node.id === fileId) return { ...node, content };
-      return node.children ? { ...node, children: updateTree(node.children) } : node;
-    });
+    setOpenFiles(prev => prev.map(f => (f.id === fileId ? { ...f, content } : f)));
+    const updateTree = (nodes: FileNode[]): FileNode[] =>
+      nodes.map(node => {
+        if (node.id === fileId) return { ...node, content };
+        return node.children ? { ...node, children: updateTree(node.children) } : node;
+      });
 
     setFileTree(prev => updateTree(prev));
 
@@ -952,14 +985,13 @@ export const IDEProvider = ({ children }: { children: ReactNode }) => {
         knowledgeDocs,
         addKnowledgeDoc,
         updateKnowledgeDoc,
-        deleteKnowledgeDoc,
+        deleteKnowledgeDoc
       }}
     >
       {children}
     </IDEContext.Provider>
   );
 };
-
 
 export const useIDE = () => {
   const context = useContext(IDEContext);

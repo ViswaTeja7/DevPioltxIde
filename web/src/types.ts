@@ -18,14 +18,23 @@ export interface ChatMessage {
   provider?: string;
 }
 
-export type ActivityTab = 'explorer' | 'search' | 'git' | 'debug' | 'extensions' | 'ai' | 'tasks' | 'skills' | 'settings';
+export type ActivityTab =
+  'explorer' | 'search' | 'git' | 'debug' | 'extensions' | 'ai' | 'tasks' | 'skills' | 'settings';
 export type PanelTab = 'terminal' | 'output' | 'debug' | 'problems';
 export type ActiveView = 'editor' | 'dashboard' | 'studio' | 'skills';
 
 export type TaskType = 'image' | 'research' | 'docs' | 'brainstorm' | 'general';
 export type AgentMode = 'plan' | 'ask' | 'agent' | 'autonomous';
 
-export type SkillCategory = 'frontend' | 'backend' | 'testing' | 'security' | 'architecture' | 'devops' | 'documentation' | 'custom';
+export type SkillCategory =
+  | 'frontend'
+  | 'backend'
+  | 'testing'
+  | 'security'
+  | 'architecture'
+  | 'devops'
+  | 'documentation'
+  | 'custom';
 
 export interface SkillFewShotExample {
   id: string;
@@ -119,7 +128,21 @@ export interface AIModel {
   badge?: string;
   contextWindow: string;
   speed: 'Ultra Fast' | 'Fast' | 'Deep Reasoning';
-  iconType: 'gemini' | 'claude' | 'openai' | 'deepseek' | 'meta' | 'ollama' | 'qwen' | 'nvidia' | 'minimax' | 'mistral' | 'groq' | 'image' | 'flux' | 'stability';
+  iconType:
+    | 'gemini'
+    | 'claude'
+    | 'openai'
+    | 'deepseek'
+    | 'meta'
+    | 'ollama'
+    | 'qwen'
+    | 'nvidia'
+    | 'minimax'
+    | 'mistral'
+    | 'groq'
+    | 'image'
+    | 'flux'
+    | 'stability';
   isDefault?: boolean;
   isCopilotRecommended?: boolean;
   requiresCustomKey?: boolean;
@@ -127,7 +150,6 @@ export interface AIModel {
   isImageModel?: boolean;
   category?: 'coding' | 'general' | 'image' | 'reasoning';
 }
-
 
 export interface LLMConfig {
   provider: AIProvider;

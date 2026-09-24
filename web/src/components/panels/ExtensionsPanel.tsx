@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  Blocks, 
-  Search, 
-  Check, 
-  Download, 
-  Settings, 
-  Sparkles, 
-  Star, 
-  ShieldCheck, 
-  Layers, 
-  Code2, 
-  Cpu, 
+import {
+  Blocks,
+  Search,
+  Check,
+  Download,
+  Settings,
+  Sparkles,
+  Star,
+  ShieldCheck,
+  Layers,
+  Code2,
+  Cpu,
   BrainCircuit,
   X
 } from 'lucide-react';
@@ -37,30 +37,34 @@ export const ExtensionsPanel = () => {
   const [extensions, setExtensions] = useState<ExtensionItem[]>([]);
 
   const toggleInstall = (id: string) => {
-    setExtensions(prev => prev.map(ext => {
-      if (ext.id === id) {
-        const nextInstalled = !ext.installed;
-        return {
-          ...ext,
-          installed: nextInstalled,
-          enabled: nextInstalled ? true : false
-        };
-      }
-      return ext;
-    }));
+    setExtensions(prev =>
+      prev.map(ext => {
+        if (ext.id === id) {
+          const nextInstalled = !ext.installed;
+          return {
+            ...ext,
+            installed: nextInstalled,
+            enabled: nextInstalled ? true : false
+          };
+        }
+        return ext;
+      })
+    );
   };
 
   const toggleEnable = (id: string) => {
-    setExtensions(prev => prev.map(ext => {
-      if (ext.id === id) {
-        return { ...ext, enabled: !ext.enabled };
-      }
-      return ext;
-    }));
+    setExtensions(prev =>
+      prev.map(ext => {
+        if (ext.id === id) {
+          return { ...ext, enabled: !ext.enabled };
+        }
+        return ext;
+      })
+    );
   };
 
   const filteredExtensions = extensions.filter(ext => {
-    const matchesSearch = 
+    const matchesSearch =
       ext.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ext.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ext.publisher.toLowerCase().includes(searchQuery.toLowerCase());
@@ -93,7 +97,7 @@ export const ExtensionsPanel = () => {
             type="text"
             placeholder="Search extensions in marketplace..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="bg-transparent text-xs text-white placeholder-[#8B949E] outline-none w-full"
           />
           {searchQuery && (
@@ -116,7 +120,9 @@ export const ExtensionsPanel = () => {
           <button
             onClick={() => setActiveFilter('installed')}
             className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              activeFilter === 'installed' ? 'bg-[#21262D] text-white' : 'text-[#8B949E] hover:text-white'
+              activeFilter === 'installed'
+                ? 'bg-[#21262D] text-white'
+                : 'text-[#8B949E] hover:text-white'
             }`}
           >
             Installed ({extensions.filter(e => e.installed).length})
@@ -124,7 +130,9 @@ export const ExtensionsPanel = () => {
           <button
             onClick={() => setActiveFilter('recommended')}
             className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              activeFilter === 'recommended' ? 'bg-[#21262D] text-white' : 'text-[#8B949E] hover:text-white'
+              activeFilter === 'recommended'
+                ? 'bg-[#21262D] text-white'
+                : 'text-[#8B949E] hover:text-white'
             }`}
           >
             Recommended
@@ -134,10 +142,10 @@ export const ExtensionsPanel = () => {
 
       {/* Extensions List */}
       <div className="flex-1 overflow-y-auto divide-y divide-[#21262D]">
-        {filteredExtensions.map((ext) => (
+        {filteredExtensions.map(ext => (
           <div key={ext.id} className="p-3 hover:bg-[#21262D]/60 transition-colors">
             <div className="flex items-start gap-2.5">
-              <div 
+              <div
                 className="w-8 h-8 rounded bg-[#0D1117] border border-[#30363D] flex items-center justify-center shrink-0"
                 style={{ color: ext.iconColor }}
               >
@@ -156,9 +164,7 @@ export const ExtensionsPanel = () => {
                   <span className="text-[10px] text-[#8B949E]">{ext.version}</span>
                 </div>
                 <div className="text-[11px] text-[#8B949E] mb-1">{ext.publisher}</div>
-                <p className="text-[11px] text-[#8B949E] line-clamp-2 mb-2">
-                  {ext.description}
-                </p>
+                <p className="text-[11px] text-[#8B949E] line-clamp-2 mb-2">{ext.description}</p>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-[10px] text-[#8B949E]">

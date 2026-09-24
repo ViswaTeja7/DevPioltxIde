@@ -1,18 +1,36 @@
 import React, { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
-import { UploadCloud, CheckCircle, AlertTriangle, Play, GitMerge, FileCode, RefreshCw } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  AreaChart,
+  Area
+} from 'recharts';
+import {
+  UploadCloud,
+  CheckCircle,
+  AlertTriangle,
+  Play,
+  GitMerge,
+  FileCode,
+  RefreshCw
+} from 'lucide-react';
 import { RepoTree } from './RepoTree';
 
-const complexityData: { name: string; score: number; }[] = [];
-const coverageData: { day: string; coverage: number; }[] = [];
+const complexityData: { name: string; score: number }[] = [];
+const coverageData: { day: string; coverage: number }[] = [];
 
 export const Dashboard = () => {
   const [isUploading, setIsUploading] = useState(false);
-  
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#0D1117] p-8 text-[#C9D1D9]">
       <div className="max-w-6xl mx-auto space-y-6">
-        
         {/* Header & Upload */}
         <div className="flex items-center justify-between">
           <div>
@@ -26,7 +44,6 @@ export const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          
           {/* File Explorer (RepoTree) */}
           <div className="bg-[#161B22] border border-[#30363D] rounded-lg flex flex-col md:col-span-1 min-h-[400px]">
             <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider p-4 border-b border-[#30363D]">
@@ -43,18 +60,37 @@ export const Dashboard = () => {
               <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider mb-4 flex items-center gap-2">
                 <FileCode size={14} /> Project Summary
               </h2>
-
             </div>
 
             {/* Test Coverage Trend */}
             <div className="bg-[#161B22] border border-[#30363D] rounded-lg p-5">
-              <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider mb-4">Coverage Trend</h2>
+              <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider mb-4">
+                Coverage Trend
+              </h2>
               <div className="h-32 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={coverageData}>
-                    <Area type="monotone" dataKey="coverage" stroke="#58A6FF" fill="#58A6FF" fillOpacity={0.2} />
-                    <XAxis dataKey="day" stroke="#8B949E" fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0D1117', borderColor: '#30363D', fontSize: '12px' }} />
+                    <Area
+                      type="monotone"
+                      dataKey="coverage"
+                      stroke="#58A6FF"
+                      fill="#58A6FF"
+                      fillOpacity={0.2}
+                    />
+                    <XAxis
+                      dataKey="day"
+                      stroke="#8B949E"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0D1117',
+                        borderColor: '#30363D',
+                        fontSize: '12px'
+                      }}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -62,12 +98,26 @@ export const Dashboard = () => {
 
             {/* Complexity Heatmap */}
             <div className="bg-[#161B22] border border-[#30363D] rounded-lg p-5 col-span-1 md:col-span-2">
-              <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider mb-4">Complexity Heatmap (Cyclomatic)</h2>
+              <h2 className="text-xs uppercase font-bold text-[#8B949E] tracking-wider mb-4">
+                Complexity Heatmap (Cyclomatic)
+              </h2>
               <div className="h-32 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={complexityData}>
-                    <XAxis dataKey="name" stroke="#8B949E" fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0D1117', borderColor: '#30363D', fontSize: '12px' }} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="#8B949E"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0D1117',
+                        borderColor: '#30363D',
+                        fontSize: '12px'
+                      }}
+                    />
                     <Bar dataKey="score" fill="#F78166" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -89,10 +139,7 @@ export const Dashboard = () => {
                   </button>
                 </div>
               </div>
-              
-
             </div>
-
           </div>
         </div>
       </div>

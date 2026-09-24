@@ -3,7 +3,13 @@
 export const getLanguageFromName = (name: string): string => {
   const lower = name.toLowerCase();
   if (lower.endsWith('.ts') || lower.endsWith('.tsx')) return 'typescript';
-  if (lower.endsWith('.js') || lower.endsWith('.jsx') || lower.endsWith('.mjs') || lower.endsWith('.cjs')) return 'javascript';
+  if (
+    lower.endsWith('.js') ||
+    lower.endsWith('.jsx') ||
+    lower.endsWith('.mjs') ||
+    lower.endsWith('.cjs')
+  )
+    return 'javascript';
   if (lower.endsWith('.json') || lower.endsWith('.jsonc')) return 'json';
   if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'markdown';
   if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'html';

@@ -3,25 +3,14 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ES2022"
-    ],
-    "types": [
-      "node"
-    ],
+    "lib": ["ES2022"],
+    "types": ["node"],
     "skipLibCheck": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "strict": true,
     "noEmit": true
   },
-  "include": [
-    "electron"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "dist-electron",
-    "release"
-  ]
+  "include": ["electron"],
+  "exclude": ["node_modules", "dist", "dist-electron", "release"]
 }

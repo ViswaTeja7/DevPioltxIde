@@ -43,7 +43,9 @@ export const PanelArea = () => {
         if (!dragState.current) return;
         const delta = dragState.current.startY - moveEvent.clientY;
         const ceiling = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - 180);
-        setPanelHeight(Math.min(Math.max(dragState.current.startHeight + delta, MIN_PANEL_HEIGHT), ceiling));
+        setPanelHeight(
+          Math.min(Math.max(dragState.current.startHeight + delta, MIN_PANEL_HEIGHT), ceiling)
+        );
       };
 
       const onUp = () => {
@@ -66,16 +68,17 @@ export const PanelArea = () => {
     { id: 'problems', label: t('panel.problems') },
     { id: 'output', label: t('panel.output') },
     { id: 'debug', label: t('panel.debugConsole') },
-    { id: 'terminal', label: t('panel.terminal') },
+    { id: 'terminal', label: t('panel.terminal') }
   ];
 
   // Standard WAI-ARIA tablist keyboard behaviour: arrows move between panel tabs.
   const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
-    const next = event.key === 'ArrowRight'
-      ? (index + 1) % tabs.length
-      : (index - 1 + tabs.length) % tabs.length;
+    const next =
+      event.key === 'ArrowRight'
+        ? (index + 1) % tabs.length
+        : (index - 1 + tabs.length) % tabs.length;
     setActivePanel(tabs[next].id);
   };
 

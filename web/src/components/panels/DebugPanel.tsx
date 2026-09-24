@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useIDE } from '../../context/IDEContext';
-import { 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Square, 
-  Bug, 
-  CheckSquare, 
-  Square as SquareIcon, 
-  Plus, 
-  Terminal, 
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Square,
+  Bug,
+  CheckSquare,
+  Square as SquareIcon,
+  Plus,
+  Terminal,
   Settings,
   ChevronRight,
   ChevronDown
@@ -20,7 +20,9 @@ export const DebugPanel = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState('Node.js: Launch Dev Server');
   const [breakpoints, setBreakpoints] = useState<{ id: string; line: number; file?: string }[]>([]);
-  const [watchExpressions, setWatchExpressions] = useState<{ id: string; expression: string }[]>([]);
+  const [watchExpressions, setWatchExpressions] = useState<{ id: string; expression: string }[]>(
+    []
+  );
   const [newWatch, setNewWatch] = useState('');
   const [isAddingWatch, setIsAddingWatch] = useState(false);
 
@@ -42,13 +44,16 @@ export const DebugPanel = () => {
   };
 
   const toggleBreakpoint = (id: string) => {
-    setBreakpoints(prev => prev.map(bp => bp.id === id ? { ...bp, enabled: !bp.enabled } : bp));
+    setBreakpoints(prev => prev.map(bp => (bp.id === id ? { ...bp, enabled: !bp.enabled } : bp)));
   };
 
   const handleAddWatch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWatch.trim()) return;
-    setWatchExpressions(prev => [...prev, { id: `w-${Date.now()}`, expr: newWatch.trim(), val: 'undefined' }]);
+    setWatchExpressions(prev => [
+      ...prev,
+      { id: `w-${Date.now()}`, expr: newWatch.trim(), val: 'undefined' }
+    ]);
     setNewWatch('');
     setIsAddingWatch(false);
   };
@@ -68,10 +73,10 @@ export const DebugPanel = () => {
         <div className="flex items-center gap-2">
           <select
             value={selectedConfig}
-            onChange={(e) => setSelectedConfig(e.target.value)}
+            onChange={e => setSelectedConfig(e.target.value)}
             className="flex-1 bg-[#0D1117] text-xs text-white p-1.5 border border-[#30363D] rounded outline-none cursor-pointer"
           >
-            {configs.map((c) => (
+            {configs.map(c => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -86,7 +91,11 @@ export const DebugPanel = () => {
             }`}
             title={isRunning ? 'Stop Debugging' : 'Start Debugging (F5)'}
           >
-            {isRunning ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+            {isRunning ? (
+              <Square size={14} fill="currentColor" />
+            ) : (
+              <Play size={14} fill="currentColor" />
+            )}
           </button>
         </div>
 
@@ -133,15 +142,18 @@ export const DebugPanel = () => {
                 autoFocus
                 placeholder="Expression to watch..."
                 value={newWatch}
-                onChange={(e) => setNewWatch(e.target.value)}
+                onChange={e => setNewWatch(e.target.value)}
                 className="w-full bg-[#0D1117] text-xs p-1 border border-[#58A6FF] rounded outline-none text-white font-mono"
               />
             </form>
           )}
 
           <div className="space-y-1 font-mono text-[11px]">
-            {watchExpressions.map((w) => (
-              <div key={w.id} className="flex items-center justify-between hover:bg-[#21262D] px-1 py-0.5 rounded">
+            {watchExpressions.map(w => (
+              <div
+                key={w.id}
+                className="flex items-center justify-between hover:bg-[#21262D] px-1 py-0.5 rounded"
+              >
                 <span className="text-[#58A6FF]">{w.expr}:</span>
                 <span className="text-[#3FB950] truncate">{w.val}</span>
               </div>
@@ -155,11 +167,13 @@ export const DebugPanel = () => {
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B949E]">
               Breakpoints
             </span>
-            <span className="text-[10px] text-[#8B949E]">{breakpoints.filter(b => b.enabled).length} active</span>
+            <span className="text-[10px] text-[#8B949E]">
+              {breakpoints.filter(b => b.enabled).length} active
+            </span>
           </div>
 
           <div className="space-y-1">
-            {breakpoints.map((bp) => (
+            {breakpoints.map(bp => (
               <div
                 key={bp.id}
                 onClick={() => toggleBreakpoint(bp.id)}
@@ -189,7 +203,9 @@ export const DebugPanel = () => {
               <div className="font-mono text-[11px] not-italic text-[#C9D1D9] space-y-0.5">
                 <div className="text-[#58A6FF]">Main Thread (Suspended at Vite HMR proxy)</div>
                 <div className="text-[#8B949E] pl-2">at startServer (server.ts:32)</div>
-                <div className="text-[#8B949E] pl-2">at Object.&lt;anonymous&gt; (server.ts:45)</div>
+                <div className="text-[#8B949E] pl-2">
+                  at Object.&lt;anonymous&gt; (server.ts:45)
+                </div>
               </div>
             ) : (
               <p>Not currently debugging</p>

@@ -12,7 +12,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'Meta Llama 3.3 70B',
     provider: 'openrouter',
     providerLabel: 'Meta AI',
-    description: "Meta's flagship open-weight 70B model delivering GPT-4o and Claude class performance in coding and reasoning.",
+    description:
+      "Meta's flagship open-weight 70B model delivering GPT-4o and Claude class performance in coding and reasoning.",
     tags: ['Meta Llama', '70B Weights', 'Industry Standard', 'OpenRouter'],
     badge: 'Meta Flagship',
     contextWindow: '128k tokens',
@@ -20,14 +21,15 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'meta',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
   {
     id: 'qwen/qwen-2.5-coder-32b-instruct',
     name: 'Qwen 2.5 Coder 32B',
     provider: 'openrouter',
     providerLabel: 'Alibaba Cloud',
-    description: 'Top-tier code generation and refactoring model supporting 90+ programming languages with exceptional precision.',
+    description:
+      'Top-tier code generation and refactoring model supporting 90+ programming languages with exceptional precision.',
     tags: ['Polyglot Coder', 'Multi-file', 'Alibaba', 'OpenRouter'],
     badge: 'Code Master',
     contextWindow: '128k tokens',
@@ -35,7 +37,7 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'qwen',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
 
   // ==========================================
@@ -46,7 +48,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'DeepSeek R1 (Free)',
     provider: 'openrouter',
     providerLabel: 'DeepSeek (Free Tier)',
-    description: 'Full open-weight deep reasoning model with chain-of-thought deliberation, completely free on OpenRouter.',
+    description:
+      'Full open-weight deep reasoning model with chain-of-thought deliberation, completely free on OpenRouter.',
     tags: ['Reasoning', 'Math & Proofs', 'Zero Cost', 'Free Tier'],
     badge: 'Free Tier',
     contextWindow: '128k tokens',
@@ -54,14 +57,15 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'deepseek',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'deepseek/deepseek-chat:free',
     name: 'DeepSeek V3 (Free)',
     provider: 'openrouter',
     providerLabel: 'DeepSeek (Free Tier)',
-    description: '671B MoE architecture with blistering code completion speed, freely accessible via OpenRouter.',
+    description:
+      '671B MoE architecture with blistering code completion speed, freely accessible via OpenRouter.',
     tags: ['671B MoE', 'Fast Coding', 'Zero Cost', 'Free Tier'],
     badge: 'Free Tier',
     contextWindow: '128k tokens',
@@ -69,14 +73,15 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'deepseek',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'meta-llama/llama-3.3-70b-instruct:free',
     name: 'Llama 3.3 70B (Free)',
     provider: 'openrouter',
     providerLabel: 'Meta (Free Tier)',
-    description: "Meta's flagship open 70B model with GPT-4 class coding capabilities without token costs.",
+    description:
+      "Meta's flagship open 70B model with GPT-4 class coding capabilities without token costs.",
     tags: ['Meta Llama', '70B Weights', 'Zero Cost', 'Free Tier'],
     badge: 'Free Tier',
     contextWindow: '128k tokens',
@@ -84,14 +89,15 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'meta',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'qwen/qwen-2.5-coder-32b-instruct:free',
     name: 'Qwen 2.5 Coder 32B (Free)',
     provider: 'openrouter',
     providerLabel: 'Alibaba (Free Tier)',
-    description: 'Ranked top open coder: specialized in JavaScript, TypeScript, Python, C++, and multi-file codebases.',
+    description:
+      'Ranked top open coder: specialized in JavaScript, TypeScript, Python, C++, and multi-file codebases.',
     tags: ['Code Specialist', 'Polyglot', 'Zero Cost', 'Free Tier'],
     badge: 'Free Tier',
     contextWindow: '128k tokens',
@@ -99,35 +105,37 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'qwen',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'mistralai/mistral-small-24b-instruct-2501:free',
     name: 'Mistral Small 24B (Free)',
     provider: 'openrouter',
     providerLabel: 'Mistral AI (Free Tier)',
-    description: 'Newest 2025 Mistral small release with sharp logic, function calling, and structured JSON output.',
+    description:
+      'Newest 2025 Mistral small release with sharp logic, function calling, and structured JSON output.',
     tags: ['Mistral', 'Function Calling', 'Zero Cost', 'Free Tier'],
     badge: 'Free Tier',
     contextWindow: '32k tokens',
     speed: 'Ultra Fast',
     iconType: 'mistral',
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'google/gemini-2.0-flash-exp:free',
     name: 'Gemini 2.0 Flash Exp (Free)',
     provider: 'openrouter',
     providerLabel: 'Google (OpenRouter Free)',
-    description: 'Google experimental multimodal 2.0 architecture freely served over OpenRouter API.',
+    description:
+      'Google experimental multimodal 2.0 architecture freely served over OpenRouter API.',
     tags: ['Multimodal', 'Experimental', 'Zero Cost', 'Free Tier'],
     badge: 'Free Tier',
     contextWindow: '1M tokens',
     speed: 'Ultra Fast',
     iconType: 'gemini',
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
 
   // ==========================================
@@ -138,7 +146,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'Claude 3.5 Sonnet',
     provider: 'openrouter',
     providerLabel: 'Anthropic',
-    description: 'The golden industry standard for software engineering, full-stack builds, and precise code edits.',
+    description:
+      'The golden industry standard for software engineering, full-stack builds, and precise code edits.',
     tags: ['Industry Benchmark', 'Frontend & Backend', '200K Context'],
     badge: 'Top Rated',
     contextWindow: '200k tokens',
@@ -146,21 +155,22 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'claude',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
   {
     id: 'anthropic/claude-3.5-haiku',
     name: 'Claude 3.5 Haiku',
     provider: 'openrouter',
     providerLabel: 'Anthropic',
-    description: 'Ultra-fast sub-second coding model for quick inline suggestions and syntax assistance.',
+    description:
+      'Ultra-fast sub-second coding model for quick inline suggestions and syntax assistance.',
     tags: ['Sub-second', 'Inline Edits', 'Lightweight'],
     badge: 'Ultra Fast',
     contextWindow: '200k tokens',
     speed: 'Ultra Fast',
     iconType: 'claude',
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
 
   // ==========================================
@@ -171,7 +181,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'GPT-4o',
     provider: 'openrouter',
     providerLabel: 'OpenAI',
-    description: "OpenAI's high-speed flagship model with strong general coding, mathematical reasoning, and broad knowledge.",
+    description:
+      "OpenAI's high-speed flagship model with strong general coding, mathematical reasoning, and broad knowledge.",
     tags: ['Flagship', 'Versatile', '128K Context'],
     badge: 'Flagship',
     contextWindow: '128k tokens',
@@ -179,14 +190,15 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'openai',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
   {
     id: 'openai/o3-mini',
     name: 'o3-mini (Reasoning)',
     provider: 'openrouter',
     providerLabel: 'OpenAI',
-    description: 'OpenAI high-speed reasoning model tailored for complex STEM tasks, algorithmic optimization, and competitive coding.',
+    description:
+      'OpenAI high-speed reasoning model tailored for complex STEM tasks, algorithmic optimization, and competitive coding.',
     tags: ['CoT Reasoning', 'STEM & Math', 'Low Latency'],
     badge: 'Reasoning',
     contextWindow: '200k tokens',
@@ -194,21 +206,22 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'openai',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
   {
     id: 'openai/o1',
     name: 'o1 (Deep Thinking)',
     provider: 'openrouter',
     providerLabel: 'OpenAI',
-    description: 'Frontier deep reasoning model designed to deliberate before answering complex system architecture problems.',
+    description:
+      'Frontier deep reasoning model designed to deliberate before answering complex system architecture problems.',
     tags: ['Frontier Reasoning', 'Deep Thought', 'Architecture'],
     badge: 'Frontier',
     contextWindow: '200k tokens',
     speed: 'Deep Reasoning',
     iconType: 'openai',
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
 
   // ==========================================
@@ -219,7 +232,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'Codestral 2501',
     provider: 'openrouter',
     providerLabel: 'Mistral AI',
-    description: "Mistral's state-of-the-art coding model with 256k context, trained on 80+ programming languages for fill-in-the-middle code completion.",
+    description:
+      "Mistral's state-of-the-art coding model with 256k context, trained on 80+ programming languages for fill-in-the-middle code completion.",
     tags: ['Codestral', '256K Context', '80+ Languages', 'FIM'],
     badge: 'Code Flagship',
     contextWindow: '256k tokens',
@@ -227,21 +241,22 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'mistral',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
   {
     id: 'mistralai/mistral-large-2411',
     name: 'Mistral Large 2',
     provider: 'openrouter',
     providerLabel: 'Mistral AI',
-    description: "Mistral's flagship enterprise model with deep multilingual capabilities, precise reasoning, and clean TypeScript output.",
+    description:
+      "Mistral's flagship enterprise model with deep multilingual capabilities, precise reasoning, and clean TypeScript output.",
     tags: ['Mistral Large', '128K Context', 'Multilingual'],
     badge: 'Enterprise',
     contextWindow: '128k tokens',
     speed: 'Fast',
     iconType: 'mistral',
     requiresCustomKey: true,
-    isFree: false,
+    isFree: false
   },
 
   // ==========================================
@@ -252,42 +267,45 @@ export const AI_MODELS: AIModel[] = [
     name: 'Llama 3.3 70B (Groq)',
     provider: 'groq',
     providerLabel: 'Meta / Groq LPU',
-    description: 'Meta flagship open-source weights running on Groq Language Processing Units for instant ~500+ tokens/sec output.',
+    description:
+      'Meta flagship open-source weights running on Groq Language Processing Units for instant ~500+ tokens/sec output.',
     tags: ['500+ tok/sec', 'Open Source', 'Groq LPU', 'Free Tier API'],
     badge: 'Instant LPU',
     contextWindow: '128k tokens',
     speed: 'Ultra Fast',
     iconType: 'meta',
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'deepseek-r1-distill-llama-70b',
     name: 'DeepSeek R1 Distill 70B (Groq)',
     provider: 'groq',
     providerLabel: 'Groq LPU',
-    description: 'DeepSeek R1 reasoning capabilities distilled into Llama 70B and served at ultra-high LPU speeds.',
+    description:
+      'DeepSeek R1 reasoning capabilities distilled into Llama 70B and served at ultra-high LPU speeds.',
     tags: ['Fast Reasoning', 'Distilled', 'Groq Speed'],
     badge: 'Fast Reasoning',
     contextWindow: '128k tokens',
     speed: 'Ultra Fast',
     iconType: 'groq' as any,
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'gemma2-9b-it',
     name: 'Gemma 2 9B (Groq)',
     provider: 'groq',
     providerLabel: 'Google / Groq LPU',
-    description: 'Google Gemma 2 weights served on Groq LPU at blazing 700+ tokens per second for immediate answers.',
+    description:
+      'Google Gemma 2 weights served on Groq LPU at blazing 700+ tokens per second for immediate answers.',
     tags: ['Gemma 2', '700+ tok/sec', 'Google AI'],
     badge: 'Blazing Fast',
     contextWindow: '8k tokens',
     speed: 'Ultra Fast',
     iconType: 'gemini',
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
 
   // ==========================================
@@ -298,7 +316,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'Ollama Cloud (Hosted)',
     provider: 'ollama',
     providerLabel: 'Ollama Cloud / Hosted',
-    description: 'Connect to hosted Ollama Cloud or cloud-deployed instances with Bearer API Key authentication.',
+    description:
+      'Connect to hosted Ollama Cloud or cloud-deployed instances with Bearer API Key authentication.',
     tags: ['Ollama Cloud', 'Hosted API Key', 'Custom Models', 'Private Cloud'],
     badge: 'Cloud API Key',
     contextWindow: '128k tokens',
@@ -306,21 +325,22 @@ export const AI_MODELS: AIModel[] = [
     iconType: 'ollama',
     isCopilotRecommended: true,
     requiresCustomKey: true,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'ollama/deepseek-r1',
     name: 'Ollama DeepSeek R1',
     provider: 'ollama',
     providerLabel: 'Ollama Instance',
-    description: 'Run DeepSeek R1 reasoning models (1.5B to 70B) over your local or cloud Ollama server.',
+    description:
+      'Run DeepSeek R1 reasoning models (1.5B to 70B) over your local or cloud Ollama server.',
     tags: ['DeepSeek R1', 'CoT Reasoning', 'Ollama'],
     badge: 'Reasoning',
     contextWindow: '64k tokens',
     speed: 'Deep Reasoning',
     iconType: 'deepseek',
     requiresCustomKey: false,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'ollama/qwen2.5-coder',
@@ -334,21 +354,22 @@ export const AI_MODELS: AIModel[] = [
     speed: 'Fast',
     iconType: 'qwen',
     requiresCustomKey: false,
-    isFree: true,
+    isFree: true
   },
   {
     id: 'ollama/custom',
     name: 'Ollama (Local / Private)',
     provider: 'ollama',
     providerLabel: 'Local Ollama Instance',
-    description: 'Connect directly to your self-hosted or tunneled Ollama instance (localhost:11434).',
+    description:
+      'Connect directly to your self-hosted or tunneled Ollama instance (localhost:11434).',
     tags: ['100% Private', 'Self Hosted', 'Air-gapped', 'Free'],
     badge: 'Local Air-gapped',
     contextWindow: 'Custom',
     speed: 'Fast',
     iconType: 'ollama',
     requiresCustomKey: false,
-    isFree: true,
+    isFree: true
   },
 
   // ==========================================
@@ -359,7 +380,8 @@ export const AI_MODELS: AIModel[] = [
     name: 'FLUX 1.1 Pro',
     provider: 'openrouter',
     providerLabel: 'Black Forest Labs',
-    description: 'Frontier 12B rectified flow transformer delivering hyper-realistic photography, typography, and complex artistic compositions.',
+    description:
+      'Frontier 12B rectified flow transformer delivering hyper-realistic photography, typography, and complex artistic compositions.',
     tags: ['Frontier', '12B Flow', 'Photorealism', 'Typography'],
     badge: 'State of the Art',
     contextWindow: 'Prompt + Image',
@@ -369,14 +391,15 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   },
   {
     id: 'black-forest-labs/flux-schnell',
     name: 'FLUX.1 Schnell',
     provider: 'openrouter',
     providerLabel: 'Black Forest Labs',
-    description: 'Ultra-fast 4-step distilled latent flow model generating studio-quality visuals, icons, and UI assets in milliseconds.',
+    description:
+      'Ultra-fast 4-step distilled latent flow model generating studio-quality visuals, icons, and UI assets in milliseconds.',
     tags: ['Ultra Fast', '4-Step', 'UI Assets', 'High Fidelity'],
     badge: 'Lightning Fast',
     contextWindow: 'Prompt + Image',
@@ -386,14 +409,15 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   },
   {
     id: 'gemini-3.1-flash-image',
     name: 'Google Imagen 3 (Gemini Flash Image)',
     provider: 'gemini',
     providerLabel: 'Google DeepMind',
-    description: "Google's flagship image generation model with high detail, exquisite lighting, and faithful in-image typography.",
+    description:
+      "Google's flagship image generation model with high detail, exquisite lighting, and faithful in-image typography.",
     tags: ['Google DeepMind', 'Photorealism', 'In-Image Text', 'Studio Quality'],
     badge: 'Google Flagship',
     contextWindow: 'Multimodal',
@@ -403,14 +427,15 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   },
   {
     id: 'stabilityai/stable-diffusion-3.5-large',
     name: 'Stable Diffusion 3.5 Large',
     provider: 'openrouter',
     providerLabel: 'Stability AI',
-    description: '8B parameter Multimodal Diffusion Transformer (MMDiT) with rich artistic styling, clean vectors, and prompt adherence.',
+    description:
+      '8B parameter Multimodal Diffusion Transformer (MMDiT) with rich artistic styling, clean vectors, and prompt adherence.',
     tags: ['Stability AI', '8B MMDiT', 'Vector & Art', 'High Res'],
     badge: 'Creative Master',
     contextWindow: 'Prompt + Image',
@@ -420,14 +445,15 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   },
   {
     id: 'openai/dall-e-3',
     name: 'OpenAI DALL-E 3',
     provider: 'openrouter',
     providerLabel: 'OpenAI',
-    description: 'Industry benchmark visual synthesis with nuance, detailed prompt expansion, and conceptual UI art rendering.',
+    description:
+      'Industry benchmark visual synthesis with nuance, detailed prompt expansion, and conceptual UI art rendering.',
     tags: ['OpenAI', 'Conceptual Art', 'Illustrations', 'Logos'],
     badge: 'High Concept',
     contextWindow: 'Prompt + Image',
@@ -436,14 +462,15 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   },
   {
     id: 'pollinations/flux-realism',
     name: 'Neural Flux Realism',
     provider: 'openrouter',
     providerLabel: 'Neural Cluster (Free)',
-    description: 'Unmetered high-resolution neural rendering engine specialized in software UI mockups, logos, avatars, and 3D icons.',
+    description:
+      'Unmetered high-resolution neural rendering engine specialized in software UI mockups, logos, avatars, and 3D icons.',
     tags: ['Zero Cost', 'Instant Render', 'UI Graphics', 'Free'],
     badge: 'Free Tier',
     contextWindow: 'Prompt + Image',
@@ -452,14 +479,15 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   },
   {
     id: 'midjourney/v6-cinematic',
     name: 'Midjourney v6 Cinematic',
     provider: 'openrouter',
     providerLabel: 'Midjourney Engine',
-    description: 'Atmospheric visual generation with cinematic lighting, depth of field, and painterly aesthetic composition.',
+    description:
+      'Atmospheric visual generation with cinematic lighting, depth of field, and painterly aesthetic composition.',
     tags: ['Cinematic', 'Stylized', 'Concept Design'],
     badge: 'Cinematic',
     contextWindow: 'Prompt + Image',
@@ -468,7 +496,7 @@ export const AI_MODELS: AIModel[] = [
     requiresCustomKey: false,
     isFree: true,
     isImageModel: true,
-    category: 'image',
+    category: 'image'
   }
 ];
 

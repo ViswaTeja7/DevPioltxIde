@@ -6,6 +6,7 @@ All notable changes to DevPilotX are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+
 - Windows Terminal–style integrated terminal: tab bar with profile dropdown, split
   panes, relaunch of exited shells, clickable links, Campbell palette, `Ctrl+` `` ` ``
   toggle, `Ctrl+Shift+5` split, middle-click tab close.
@@ -49,12 +50,14 @@ All notable changes to DevPilotX are documented here. The format follows
   unreachable catalogue.
 
 ### Changed
+
 - CI now runs typecheck, real unit tests with coverage, `npm audit --audit-level=high`,
   and the production build on Ubuntu, Windows and macOS. The previous placeholder
   "simulated coverage" steps were removed.
 - Consolidated on npm as the single package manager (`bun.lock` removed).
 
 ### Fixed
+
 - The bottom panel's TERMINAL tab rendered a legacy read-only text box instead of the
   real PTY terminal; it now mounts the actual terminal component.
 - Duplicate `/api/provider-models` route registration removed.

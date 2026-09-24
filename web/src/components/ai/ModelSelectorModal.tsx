@@ -3,7 +3,22 @@ import { useIDE } from '../../context/IDEContext';
 import { getModelById, DEFAULT_MODEL_ID } from '../../constants/models';
 import { ModelIcon } from './ModelIcon';
 import { AIModel } from '../../types';
-import { Search, Check, Sparkles, X, Brain, Zap, Key, ShieldCheck, Cpu, Terminal, ArrowRight, ExternalLink, Gift, Layers } from 'lucide-react';
+import {
+  Search,
+  Check,
+  Sparkles,
+  X,
+  Brain,
+  Zap,
+  Key,
+  ShieldCheck,
+  Cpu,
+  Terminal,
+  ArrowRight,
+  ExternalLink,
+  Gift,
+  Layers
+} from 'lucide-react';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -17,13 +32,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
 
   if (!isOpen) return null;
 
-  const currentModel = availableModels.find(model => model.id === llmConfig.selectedModelId) || getModelById(DEFAULT_MODEL_ID);
+  const currentModel =
+    availableModels.find(model => model.id === llmConfig.selectedModelId) ||
+    getModelById(DEFAULT_MODEL_ID);
 
-  const filteredModels = availableModels.filter((model) => {
+  const filteredModels = availableModels.filter(model => {
     const matchesQuery =
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.providerLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      model.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      model.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
       model.description.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesQuery) return false;
@@ -31,8 +48,10 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
     if (selectedCategory === 'all') return true;
     if (selectedCategory === 'image') return model.isImageModel || model.category === 'image';
     if (selectedCategory === 'free') return model.isFree;
-    if (selectedCategory === 'nvidia') return model.iconType === 'nvidia' || model.name.toLowerCase().includes('nvidia');
-    if (selectedCategory === 'minimax') return model.iconType === 'minimax' || model.name.toLowerCase().includes('minimax');
+    if (selectedCategory === 'nvidia')
+      return model.iconType === 'nvidia' || model.name.toLowerCase().includes('nvidia');
+    if (selectedCategory === 'minimax')
+      return model.iconType === 'minimax' || model.name.toLowerCase().includes('minimax');
     if (selectedCategory === 'gemini') return model.provider === 'gemini';
     if (selectedCategory === 'anthropic') return model.iconType === 'claude';
     if (selectedCategory === 'openai') return model.iconType === 'openai';
@@ -47,7 +66,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
   const handleSelect = (model: AIModel) => {
     updateLLMConfig({
       selectedModelId: model.id,
-      provider: model.provider,
+      provider: model.provider
     });
     onClose();
   };
@@ -64,7 +83,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
     { id: 'deepseek', label: 'DeepSeek' },
     { id: 'mistral', label: 'Mistral' },
     { id: 'groq', label: 'Groq LPU' },
-    { id: 'ollama', label: 'Local Ollama' },
+    { id: 'ollama', label: 'Local Ollama' }
   ];
 
   return (
@@ -81,7 +100,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
                 DevPilotX AI Model Selector
               </h2>
               <p className="text-xs text-[#8B949E]">
-                Select between Google Gemini, NVIDIA Nemotron, MiniMax, Claude, DeepSeek, OpenAI, Mistral & Free-tier models.
+                Select between Google Gemini, NVIDIA Nemotron, MiniMax, Claude, DeepSeek, OpenAI,
+                Mistral & Free-tier models.
               </p>
             </div>
           </div>
@@ -100,7 +120,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262D] border border-[#30363D]">
               <ModelIcon type={currentModel.iconType} size={14} />
               <span className="text-xs font-semibold text-white">{currentModel.name}</span>
-              <span className="text-[10px] text-[#58A6FF] ml-1">({currentModel.providerLabel})</span>
+              <span className="text-[10px] text-[#58A6FF] ml-1">
+                ({currentModel.providerLabel})
+              </span>
             </div>
             {currentModel.isFree && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#238636]/20 text-[#3FB950] border border-[#2EA043]/30 font-medium">
@@ -121,14 +143,14 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search by model name (e.g. Nemotron, MiniMax, Claude, DeepSeek, Free)..."
               className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder:text-[#484F58] outline-none focus:border-[#58A6FF] transition-colors"
             />
           </div>
 
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-            {categories.map((tab) => (
+            {categories.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setSelectedCategory(tab.id)}
@@ -169,12 +191,16 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
             ) : (
               <div className="col-span-2 py-12 text-center text-[#8B949E]">
                 <Layers size={32} className="mx-auto mb-2 opacity-40 text-[#58A6FF]" />
-                <p className="text-sm font-semibold text-white">No models matching &quot;{searchQuery}&quot;</p>
-                <p className="text-xs text-[#8B949E] mt-1">Try searching for &quot;Free&quot;, &quot;Coder&quot;, or &quot;Flash&quot;</p>
+                <p className="text-sm font-semibold text-white">
+                  No models matching &quot;{searchQuery}&quot;
+                </p>
+                <p className="text-xs text-[#8B949E] mt-1">
+                  Try searching for &quot;Free&quot;, &quot;Coder&quot;, or &quot;Flash&quot;
+                </p>
               </div>
             )
           ) : (
-            filteredModels.map((model) => {
+            filteredModels.map(model => {
               const isSelected = model.id === currentModel.id;
               return (
                 <div
@@ -194,7 +220,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
                           <h3 className="text-sm font-bold text-white group-hover:text-[#58A6FF] transition-colors flex items-center gap-1.5 truncate">
                             {model.name}
                           </h3>
-                          <span className="text-[11px] text-[#8B949E] truncate block">{model.providerLabel}</span>
+                          <span className="text-[11px] text-[#8B949E] truncate block">
+                            {model.providerLabel}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -249,7 +277,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({ isOpen, 
         {/* Footer */}
         <div className="p-4 border-t border-[#30363D] bg-[#0D1117] flex items-center justify-between text-xs text-[#8B949E] flex-wrap gap-2">
           <span>
-            Free models with the <strong className="text-[#3FB950]">Free</strong> badge can be used without consuming paid API credits.
+            Free models with the <strong className="text-[#3FB950]">Free</strong> badge can be used
+            without consuming paid API credits.
           </span>
           <button
             onClick={() => {

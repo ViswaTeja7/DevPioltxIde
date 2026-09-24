@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, Sparkles, Check, Image as ImageIcon, Zap, Filter } from 'lucide-react';
+import {
+  ChevronDown,
+  Search,
+  Sparkles,
+  Check,
+  Image as ImageIcon,
+  Zap,
+  Filter
+} from 'lucide-react';
 import { AI_MODELS, getModelById, getImageModels, getTextModels } from '../../constants/models';
 import { AIModel, TaskType } from '../../types';
 import { ModelIcon } from './ModelIcon';
@@ -19,7 +27,9 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>(taskType === 'image' ? 'image' : 'all');
+  const [activeCategory, setActiveCategory] = useState<string>(
+    taskType === 'image' ? 'image' : 'all'
+  );
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,14 +58,15 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
     };
   }, [isOpen]);
 
-  const currentModel = getModelById(selectedModelId) || (taskType === 'image' ? getImageModels()[0] : AI_MODELS[0]);
+  const currentModel =
+    getModelById(selectedModelId) || (taskType === 'image' ? getImageModels()[0] : AI_MODELS[0]);
 
   // Filter models
-  const filteredModels = AI_MODELS.filter((model) => {
+  const filteredModels = AI_MODELS.filter(model => {
     const matchesSearch =
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       model.providerLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      model.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      model.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
       model.description.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
@@ -80,7 +91,7 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
     { id: 'anthropic', label: 'Claude' },
     { id: 'openai', label: 'OpenAI' },
     { id: 'deepseek', label: 'DeepSeek' },
-    { id: 'nvidia', label: 'NVIDIA' },
+    { id: 'nvidia', label: 'NVIDIA' }
   ];
 
   return (
@@ -129,12 +140,15 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
 
             {/* Search Input */}
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8B949E]" />
+              <Search
+                size={13}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8B949E]"
+              />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search models (e.g. Flux, Imagen, Claude, DeepSeek)..."
                 className="w-full bg-[#0D1117] border border-[#30363D] rounded-lg px-8 py-1.5 text-xs text-white placeholder:text-[#484F58] outline-none focus:border-[#58A6FF] transition-colors"
               />
@@ -150,7 +164,7 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
 
             {/* Category Filter Tabs */}
             <div className="flex gap-1 mt-2 overflow-x-auto pb-0.5 scrollbar-none text-[10px]">
-              {categories.map((tab) => (
+              {categories.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveCategory(tab.id)}
@@ -173,7 +187,7 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
                 No matching models found. Try clearing your search.
               </div>
             ) : (
-              filteredModels.map((model) => {
+              filteredModels.map(model => {
                 const isSelected = model.id === currentModel.id;
                 return (
                   <button
@@ -191,7 +205,9 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
                     <ModelIcon type={model.iconType} size={15} className="mt-0.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-xs font-semibold ${isSelected ? 'text-[#58A6FF]' : 'text-white group-hover:text-[#58A6FF]'}`}>
+                        <span
+                          className={`text-xs font-semibold ${isSelected ? 'text-[#58A6FF]' : 'text-white group-hover:text-[#58A6FF]'}`}
+                        >
                           {model.name}
                         </span>
                         {model.isImageModel && (
@@ -221,9 +237,7 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
                         <span>{model.contextWindow}</span>
                       </div>
                     </div>
-                    {isSelected && (
-                      <Check size={14} className="text-[#58A6FF] shrink-0 mt-1" />
-                    )}
+                    {isSelected && <Check size={14} className="text-[#58A6FF] shrink-0 mt-1" />}
                   </button>
                 );
               })
@@ -232,7 +246,9 @@ export const TaskModelSelector: React.FC<TaskModelSelectorProps> = ({
 
           {/* Footer */}
           <div className="p-2 border-t border-[#30363D] bg-[#0D1117] flex items-center justify-between text-[10px] text-[#8B949E]">
-            <span>Active Model: <strong className="text-white">{currentModel.name}</strong></span>
+            <span>
+              Active Model: <strong className="text-white">{currentModel.name}</strong>
+            </span>
             {currentModel.isImageModel ? (
               <span className="text-[#D2A8FF]">Visual Synthesis Ready</span>
             ) : (

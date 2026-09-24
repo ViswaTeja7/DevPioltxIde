@@ -29,10 +29,7 @@ export const sortTreeEntries = (entries: WorkspaceTreeEntry[]): WorkspaceTreeEnt
       entry.children ? { ...entry, children: sortTreeEntries(entry.children) } : entry
     );
 
-export const entriesToTree = (
-  entries: WorkspaceTreeEntry[],
-  parentPath = ''
-): FileNode[] =>
+export const entriesToTree = (entries: WorkspaceTreeEntry[], parentPath = ''): FileNode[] =>
   sortTreeEntries(entries).map(entry => {
     const path = joinPath(parentPath, entry.name);
     if (entry.type === 'folder') {
@@ -77,7 +74,7 @@ export const repathSubtree = (node: FileNode, fromPath: string, toPath: string):
     return {
       ...current,
       id: `fs-${newPath}`,
-      name: current.path === from ? newPath.split('/').pop() ?? current.name : current.name,
+      name: current.path === from ? (newPath.split('/').pop() ?? current.name) : current.name,
       path: newPath,
       language: current.type === 'file' ? getLanguageFromName(newPath) : current.language,
       children: current.children?.map(rewrite)

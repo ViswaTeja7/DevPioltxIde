@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useIDE } from '../../context/IDEContext';
-import { 
-  GitBranch, 
-  GitCommit, 
-  Check, 
-  RefreshCw, 
-  Plus, 
-  Minus, 
-  FileCode, 
-  FileText, 
+import {
+  GitBranch,
+  GitCommit,
+  Check,
+  RefreshCw,
+  Plus,
+  Minus,
+  FileCode,
+  FileText,
   RotateCcw,
   Sparkles,
   CheckCircle2,
@@ -28,19 +28,25 @@ export const SourceControlPanel = () => {
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [committedNotice, setCommittedNotice] = useState<string | null>(null);
-  
+
   // Track mock changes
   const [changedFiles, setChangedFiles] = useState<ChangedFile[]>([
     { id: 'change-1', name: 'App.tsx', path: '/src/App.tsx', status: 'M', staged: true },
     { id: 'change-2', name: 'types.ts', path: '/src/types.ts', status: 'M', staged: false },
-    { id: 'change-3', name: 'SkillsSidebarPanel.tsx', path: '/src/components/SkillsSidebarPanel.tsx', status: 'A', staged: false }
+    {
+      id: 'change-3',
+      name: 'SkillsSidebarPanel.tsx',
+      path: '/src/components/SkillsSidebarPanel.tsx',
+      status: 'A',
+      staged: false
+    }
   ]);
 
   const stagedFiles = changedFiles.filter(f => f.staged);
   const unstagedFiles = changedFiles.filter(f => !f.staged);
 
   const toggleStageFile = (fileId: string) => {
-    setChangedFiles(prev => prev.map(f => f.id === fileId ? { ...f, staged: !f.staged } : f));
+    setChangedFiles(prev => prev.map(f => (f.id === fileId ? { ...f, staged: !f.staged } : f)));
   };
 
   const stageAll = () => {
@@ -64,8 +70,11 @@ export const SourceControlPanel = () => {
   };
 
   const generateCommitMessageWithAI = () => {
-    const changesSummary = stagedFiles.length > 0 ? stagedFiles.map(f => f.name).join(', ') : 'all recent changes';
-    setCommitMessage(`feat: update architecture and add Claude skills support in ${changesSummary}`);
+    const changesSummary =
+      stagedFiles.length > 0 ? stagedFiles.map(f => f.name).join(', ') : 'all recent changes';
+    setCommitMessage(
+      `feat: update architecture and add Claude skills support in ${changesSummary}`
+    );
   };
 
   return (
@@ -80,7 +89,7 @@ export const SourceControlPanel = () => {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <button 
+          <button
             onClick={() => {}}
             className="p-1 rounded text-[#8B949E] hover:text-white hover:bg-[#21262D]"
             title="Refresh"
@@ -96,7 +105,7 @@ export const SourceControlPanel = () => {
           <textarea
             placeholder="Message (Ctrl+Enter to commit)"
             value={commitMessage}
-            onChange={(e) => setCommitMessage(e.target.value)}
+            onChange={e => setCommitMessage(e.target.value)}
             rows={2}
             className="w-full bg-[#0D1117] text-xs text-white p-2 border border-[#30363D] focus:border-[#58A6FF] rounded outline-none resize-none placeholder-[#8B949E]"
           />
@@ -134,7 +143,7 @@ export const SourceControlPanel = () => {
           <div className="px-3 py-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#8B949E]">
             <span>Staged Changes ({stagedFiles.length})</span>
             {stagedFiles.length > 0 && (
-              <button 
+              <button
                 onClick={unstageAll}
                 className="hover:text-white flex items-center gap-0.5 lowercase font-normal text-[10px]"
               >
@@ -145,7 +154,7 @@ export const SourceControlPanel = () => {
           {stagedFiles.length === 0 ? (
             <div className="px-3 py-1.5 text-[11px] text-[#8B949E] italic">No staged changes</div>
           ) : (
-            stagedFiles.map((file) => (
+            stagedFiles.map(file => (
               <div
                 key={file.id}
                 className="px-3 py-1.5 flex items-center justify-between hover:bg-[#21262D] cursor-pointer group"
@@ -156,7 +165,9 @@ export const SourceControlPanel = () => {
                   <span className="text-[10px] text-[#8B949E] truncate">{file.path}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className={`text-[10px] font-bold px-1 rounded ${file.status === 'A' ? 'text-[#3FB950] bg-[#238636]/20' : 'text-[#D29922] bg-[#D29922]/20'}`}>
+                  <span
+                    className={`text-[10px] font-bold px-1 rounded ${file.status === 'A' ? 'text-[#3FB950] bg-[#238636]/20' : 'text-[#D29922] bg-[#D29922]/20'}`}
+                  >
                     {file.status}
                   </span>
                   <button
@@ -177,7 +188,7 @@ export const SourceControlPanel = () => {
           <div className="px-3 py-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#8B949E]">
             <span>Changes ({unstagedFiles.length})</span>
             {unstagedFiles.length > 0 && (
-              <button 
+              <button
                 onClick={stageAll}
                 className="hover:text-white flex items-center gap-0.5 lowercase font-normal text-[10px]"
               >
@@ -188,7 +199,7 @@ export const SourceControlPanel = () => {
           {unstagedFiles.length === 0 ? (
             <div className="px-3 py-1.5 text-[11px] text-[#8B949E] italic">Working tree clean</div>
           ) : (
-            unstagedFiles.map((file) => (
+            unstagedFiles.map(file => (
               <div
                 key={file.id}
                 className="px-3 py-1.5 flex items-center justify-between hover:bg-[#21262D] cursor-pointer group"
@@ -199,7 +210,9 @@ export const SourceControlPanel = () => {
                   <span className="text-[10px] text-[#8B949E] truncate">{file.path}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className={`text-[10px] font-bold px-1 rounded ${file.status === 'A' ? 'text-[#3FB950] bg-[#238636]/20' : 'text-[#D29922] bg-[#D29922]/20'}`}>
+                  <span
+                    className={`text-[10px] font-bold px-1 rounded ${file.status === 'A' ? 'text-[#3FB950] bg-[#238636]/20' : 'text-[#D29922] bg-[#D29922]/20'}`}
+                  >
                     {file.status}
                   </span>
                   <button

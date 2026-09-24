@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Play, Settings, CloudLightning, LayoutDashboard, Code, Sparkles, X, Wand2, BrainCircuit } from 'lucide-react';
+import {
+  Menu,
+  Play,
+  Settings,
+  CloudLightning,
+  LayoutDashboard,
+  Code,
+  Sparkles,
+  X,
+  Wand2,
+  BrainCircuit
+} from 'lucide-react';
 import { useIDE } from '../../context/IDEContext';
 import { HamburgerMenu } from './HamburgerMenu';
 import { MenuBar } from './MenuBar';
@@ -15,7 +26,7 @@ export const TopBar = () => {
     selectedModel,
     setIsModelSelectorOpen,
     setActiveActivity,
-    activeActivity,
+    activeActivity
   } = useIDE();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -25,7 +36,7 @@ export const TopBar = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
-        setIsMenuOpen((prev) => !prev);
+        setIsMenuOpen(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -40,8 +51,8 @@ export const TopBar = () => {
         <button
           id="left-hamburger-button"
           onClick={() => toggleSidebar()}
-          title={activeActivity ? "Hide Left Panel (Ctrl+B)" : "Expand Left Panel (Ctrl+B)"}
-          aria-label={activeActivity ? "Hide Left Panel" : "Expand Left Panel"}
+          title={activeActivity ? 'Hide Left Panel (Ctrl+B)' : 'Expand Left Panel (Ctrl+B)'}
+          aria-label={activeActivity ? 'Hide Left Panel' : 'Expand Left Panel'}
           aria-expanded={!!activeActivity}
           className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${
             activeActivity
@@ -53,10 +64,7 @@ export const TopBar = () => {
         </button>
 
         {/* Hamburger Dropdown Menu */}
-        <HamburgerMenu
-          isOpen={isMenuOpen}
-          onClose={() => setIsMenuOpen(false)}
-        />
+        <HamburgerMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
         <div className="flex items-center gap-1.5 font-semibold text-sm text-[#8B949E]">
           <CloudLightning size={16} className="text-[#58A6FF]" />
@@ -86,37 +94,45 @@ export const TopBar = () => {
 
         {/* View Toggle */}
         <div className="flex bg-[#0D1117] border border-[#30363D] rounded overflow-hidden">
-          <button 
+          <button
             onClick={() => setActiveView('editor')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors ${
-              activeView === 'editor' ? 'bg-[#21262D] text-white font-medium' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+              activeView === 'editor'
+                ? 'bg-[#21262D] text-white font-medium'
+                : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
             }`}
           >
             <Code size={12} />
             <span className="hidden sm:inline">Editor</span>
           </button>
-          <button 
+          <button
             onClick={() => setActiveView('studio')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors ${
-              activeView === 'studio' ? 'bg-[#21262D] text-[#A371F7] font-medium' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+              activeView === 'studio'
+                ? 'bg-[#21262D] text-[#A371F7] font-medium'
+                : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
             }`}
           >
             <Wand2 size={12} className={activeView === 'studio' ? 'text-[#A371F7]' : ''} />
             <span className="hidden sm:inline">Task Studio</span>
           </button>
-          <button 
+          <button
             onClick={() => setActiveView('skills')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors ${
-              activeView === 'skills' ? 'bg-[#21262D] text-[#A371F7] font-medium' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+              activeView === 'skills'
+                ? 'bg-[#21262D] text-[#A371F7] font-medium'
+                : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
             }`}
           >
             <BrainCircuit size={12} className={activeView === 'skills' ? 'text-[#A371F7]' : ''} />
             <span className="hidden sm:inline">Train & Skills</span>
           </button>
-          <button 
+          <button
             onClick={() => setActiveView('dashboard')}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors ${
-              activeView === 'dashboard' ? 'bg-[#21262D] text-white font-medium' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+              activeView === 'dashboard'
+                ? 'bg-[#21262D] text-white font-medium'
+                : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
             }`}
           >
             <LayoutDashboard size={12} />

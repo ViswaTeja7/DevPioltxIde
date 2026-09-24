@@ -1,13 +1,38 @@
 import React, { useState } from 'react';
 import { useIDE } from '../../context/IDEContext';
-import { Key, Server, Sparkles, Check, ChevronRight, ShieldCheck, Zap, Brain, Sliders, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import {
+  Key,
+  Server,
+  Sparkles,
+  Check,
+  ChevronRight,
+  ShieldCheck,
+  Zap,
+  Brain,
+  Sliders,
+  ExternalLink,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react';
 import { AI_MODELS, getModelById } from '../../constants/models';
 import { ModelIcon } from '../ai/ModelIcon';
 
 export const SettingsPanel = () => {
-  const { llmConfig, updateLLMConfig, selectedModel, selectModel, setIsModelSelectorOpen, refreshProviderModels, secretStorage, persistApiKeys, clearApiKeys } = useIDE();
+  const {
+    llmConfig,
+    updateLLMConfig,
+    selectedModel,
+    selectModel,
+    setIsModelSelectorOpen,
+    refreshProviderModels,
+    secretStorage,
+    persistApiKeys,
+    clearApiKeys
+  } = useIDE();
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
-  const [providerStatuses, setProviderStatuses] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [providerStatuses, setProviderStatuses] = useState<
+    Record<string, { success: boolean; message: string }>
+  >({});
   const [savedFeedback, setSavedFeedback] = useState(false);
 
   const handleSaveKeys = async () => {
@@ -25,8 +50,11 @@ export const SettingsPanel = () => {
 
   const handleTestProvider = async (provider: 'gemini' | 'openrouter' | 'ollama' | 'groq') => {
     setTestingProvider(provider);
-    setProviderStatuses(prev => ({ ...prev, [provider]: { success: false, message: 'Testing connection...' } }));
-    
+    setProviderStatuses(prev => ({
+      ...prev,
+      [provider]: { success: false, message: 'Testing connection...' }
+    }));
+
     try {
       const response = await fetch('/api/test-provider', {
         method: 'POST',
@@ -101,7 +129,7 @@ export const SettingsPanel = () => {
           Clear keys
         </button>
       </div>
-      
+
       <div className="p-4 flex-1 space-y-6">
         {/* Active DevPilotX Model Card */}
         <div>
@@ -173,7 +201,7 @@ export const SettingsPanel = () => {
               <ShieldCheck size={11} /> Saved to Local Storage
             </span>
           </div>
-          
+
           <div className="flex flex-col gap-4 bg-[#0D1117] p-3.5 rounded-lg border border-[#30363D]">
             {/* 1. Google Gemini */}
             <div className="p-3 rounded-lg bg-[#161B22] border border-[#30363D]/80 flex flex-col gap-2">
@@ -195,16 +223,27 @@ export const SettingsPanel = () => {
                   </button>
                 </div>
               </div>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={llmConfig.keys.gemini}
-                onChange={(e) => updateLLMConfig(prev => ({ ...prev, keys: { ...prev.keys, gemini: e.target.value } }))}
+                onChange={e =>
+                  updateLLMConfig(prev => ({
+                    ...prev,
+                    keys: { ...prev.keys, gemini: e.target.value }
+                  }))
+                }
                 placeholder="Optional custom key (uses server GEMINI_API_KEY by default)"
-                className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]" 
+                className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]"
               />
               {providerStatuses.gemini && (
-                <div className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.gemini.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}>
-                  {providerStatuses.gemini.success ? <Check size={12} /> : <AlertCircle size={12} />}
+                <div
+                  className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.gemini.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}
+                >
+                  {providerStatuses.gemini.success ? (
+                    <Check size={12} />
+                  ) : (
+                    <AlertCircle size={12} />
+                  )}
                   <span className="truncate">{providerStatuses.gemini.message}</span>
                 </div>
               )}
@@ -235,19 +274,32 @@ export const SettingsPanel = () => {
                   </button>
                 </div>
               </div>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={llmConfig.keys.openrouter}
-                onChange={(e) => updateLLMConfig(prev => ({ ...prev, keys: { ...prev.keys, openrouter: e.target.value } }))}
+                onChange={e =>
+                  updateLLMConfig(prev => ({
+                    ...prev,
+                    keys: { ...prev.keys, openrouter: e.target.value }
+                  }))
+                }
                 placeholder="sk-or-v1-... (enables NVIDIA Nemotron, MiniMax, Claude, DeepSeek & Free-tier)"
-                className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]" 
+                className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]"
               />
               <p className="text-[10px] text-[#8B949E]">
-                Supports <strong>NVIDIA Nemotron 70B</strong>, <strong>MiniMax-01</strong>, <strong>Claude 3.7</strong>, <strong>DeepSeek R1 Free</strong>, and <strong>Llama 3.3 Free</strong>.
+                Supports <strong>NVIDIA Nemotron 70B</strong>, <strong>MiniMax-01</strong>,{' '}
+                <strong>Claude 3.7</strong>, <strong>DeepSeek R1 Free</strong>, and{' '}
+                <strong>Llama 3.3 Free</strong>.
               </p>
               {providerStatuses.openrouter && (
-                <div className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.openrouter.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}>
-                  {providerStatuses.openrouter.success ? <Check size={12} /> : <AlertCircle size={12} />}
+                <div
+                  className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.openrouter.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}
+                >
+                  {providerStatuses.openrouter.success ? (
+                    <Check size={12} />
+                  ) : (
+                    <AlertCircle size={12} />
+                  )}
                   <span className="truncate">{providerStatuses.openrouter.message}</span>
                 </div>
               )}
@@ -262,26 +314,30 @@ export const SettingsPanel = () => {
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => updateLLMConfig(prev => ({ 
-                      ...prev, 
-                      keys: { 
-                        ...prev.keys, 
-                        ollamaUrl: 'https://api.ollama.ai/v1' 
-                      } 
-                    }))}
+                    onClick={() =>
+                      updateLLMConfig(prev => ({
+                        ...prev,
+                        keys: {
+                          ...prev.keys,
+                          ollamaUrl: 'https://api.ollama.ai/v1'
+                        }
+                      }))
+                    }
                     className="text-[9px] px-1.5 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] text-[#58A6FF] border border-[#30363D]"
                   >
                     Ollama Cloud
                   </button>
                   <button
                     type="button"
-                    onClick={() => updateLLMConfig(prev => ({ 
-                      ...prev, 
-                      keys: { 
-                        ...prev.keys, 
-                        ollamaUrl: 'http://localhost:11434/v1' 
-                      } 
-                    }))}
+                    onClick={() =>
+                      updateLLMConfig(prev => ({
+                        ...prev,
+                        keys: {
+                          ...prev.keys,
+                          ollamaUrl: 'http://localhost:11434/v1'
+                        }
+                      }))
+                    }
                     className="text-[9px] px-1.5 py-0.5 rounded bg-[#21262D] hover:bg-[#30363D] text-[#8B949E] border border-[#30363D]"
                   >
                     Local
@@ -300,12 +356,17 @@ export const SettingsPanel = () => {
               {/* Ollama Base URL */}
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] text-[#8B949E]">Endpoint URL</span>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={llmConfig.keys.ollamaUrl}
-                  onChange={(e) => updateLLMConfig(prev => ({ ...prev, keys: { ...prev.keys, ollamaUrl: e.target.value } }))}
+                  onChange={e =>
+                    updateLLMConfig(prev => ({
+                      ...prev,
+                      keys: { ...prev.keys, ollamaUrl: e.target.value }
+                    }))
+                  }
                   placeholder="https://api.ollama.ai/v1 or https://xxxx.ngrok-free.app/v1"
-                  className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]" 
+                  className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]"
                 />
               </div>
 
@@ -316,30 +377,46 @@ export const SettingsPanel = () => {
                     <Key size={11} className="text-[#3FB950]" /> Ollama Cloud API Key / Bearer Token
                   </span>
                 </div>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   value={llmConfig.keys.ollamaApiKey || ''}
-                  onChange={(e) => updateLLMConfig(prev => ({ ...prev, keys: { ...prev.keys, ollamaApiKey: e.target.value } }))}
+                  onChange={e =>
+                    updateLLMConfig(prev => ({
+                      ...prev,
+                      keys: { ...prev.keys, ollamaApiKey: e.target.value }
+                    }))
+                  }
                   placeholder="ollama_... or Bearer token (for hosted/cloud instances)"
-                  className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]" 
+                  className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]"
                 />
               </div>
 
               {/* Ollama Model Name */}
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] text-[#8B949E]">Target Ollama Model</span>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={llmConfig.keys.ollamaModel || 'llama3.3'}
-                  onChange={(e) => updateLLMConfig(prev => ({ ...prev, keys: { ...prev.keys, ollamaModel: e.target.value } }))}
+                  onChange={e =>
+                    updateLLMConfig(prev => ({
+                      ...prev,
+                      keys: { ...prev.keys, ollamaModel: e.target.value }
+                    }))
+                  }
                   placeholder="e.g. llama3.3, deepseek-r1:70b, qwen2.5-coder:32b"
-                  className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]" 
+                  className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]"
                 />
               </div>
 
               {providerStatuses.ollama && (
-                <div className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.ollama.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}>
-                  {providerStatuses.ollama.success ? <Check size={12} /> : <AlertCircle size={12} />}
+                <div
+                  className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.ollama.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}
+                >
+                  {providerStatuses.ollama.success ? (
+                    <Check size={12} />
+                  ) : (
+                    <AlertCircle size={12} />
+                  )}
                   <span className="text-[11px] break-words">{providerStatuses.ollama.message}</span>
                 </div>
               )}
@@ -370,15 +447,22 @@ export const SettingsPanel = () => {
                   </button>
                 </div>
               </div>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={llmConfig.keys.groq}
-                onChange={(e) => updateLLMConfig(prev => ({ ...prev, keys: { ...prev.keys, groq: e.target.value } }))}
+                onChange={e =>
+                  updateLLMConfig(prev => ({
+                    ...prev,
+                    keys: { ...prev.keys, groq: e.target.value }
+                  }))
+                }
                 placeholder="gsk_... (enables 500+ tok/sec Groq inference)"
-                className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]" 
+                className="w-full bg-[#0D1117] text-xs p-2 border border-[#30363D] focus:border-[#58A6FF] text-[#C9D1D9] outline-none rounded placeholder:text-[#484F58]"
               />
               {providerStatuses.groq && (
-                <div className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.groq.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}>
+                <div
+                  className={`p-1.5 rounded text-[11px] flex items-center gap-1.5 ${providerStatuses.groq.success ? 'bg-[#238636]/15 text-[#3FB950] border border-[#2EA043]/30' : 'bg-[#F85149]/15 text-[#FF7B72] border border-[#F85149]/30'}`}
+                >
                   {providerStatuses.groq.success ? <Check size={12} /> : <AlertCircle size={12} />}
                   <span className="truncate">{providerStatuses.groq.message}</span>
                 </div>

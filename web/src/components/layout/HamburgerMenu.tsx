@@ -33,7 +33,8 @@ interface HamburgerMenuProps {
   onClose: () => void;
 }
 
-type MenuCategory = 'file' | 'edit' | 'selection' | 'view' | 'ai' | 'run' | 'terminal' | 'help' | null;
+type MenuCategory =
+  'file' | 'edit' | 'selection' | 'view' | 'ai' | 'run' | 'terminal' | 'help' | null;
 
 export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose }) => {
   const {
@@ -52,7 +53,7 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
     selectedModel,
     setIsModelSelectorOpen,
     clearChatHistory,
-    clearTaskChatHistory,
+    clearTaskChatHistory
   } = useIDE();
 
   const [activeSubmenu, setActiveSubmenu] = useState<MenuCategory>(null);
@@ -145,9 +146,11 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
           </div>
 
           <button
-            onClick={() => handleAction(() => {
-              if (activeFileId) closeFile(activeFileId);
-            })}
+            onClick={() =>
+              handleAction(() => {
+                if (activeFileId) closeFile(activeFileId);
+              })
+            }
             disabled={!activeFileId}
             className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-[#21262D] hover:text-white text-left transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
           >
@@ -230,10 +233,12 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
           </button>
 
           <button
-            onClick={() => handleAction(() => {
-              toggleSidebar('explorer');
-              if (activeView !== 'editor') setActiveView('editor');
-            })}
+            onClick={() =>
+              handleAction(() => {
+                toggleSidebar('explorer');
+                if (activeView !== 'editor') setActiveView('editor');
+              })
+            }
             className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-[#21262D] hover:text-white text-left transition-colors"
           >
             <span className="flex items-center gap-2.5">
@@ -244,10 +249,12 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
           </button>
 
           <button
-            onClick={() => handleAction(() => {
-              toggleSidebar('search');
-              if (activeView !== 'editor') setActiveView('editor');
-            })}
+            onClick={() =>
+              handleAction(() => {
+                toggleSidebar('search');
+                if (activeView !== 'editor') setActiveView('editor');
+              })
+            }
             className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-[#21262D] hover:text-white text-left transition-colors"
           >
             <span className="flex items-center gap-2.5">
@@ -290,10 +297,12 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
           </button>
 
           <button
-            onClick={() => handleAction(() => {
-              setActiveActivity('ai');
-              if (activeView !== 'editor') setActiveView('editor');
-            })}
+            onClick={() =>
+              handleAction(() => {
+                setActiveActivity('ai');
+                if (activeView !== 'editor') setActiveView('editor');
+              })
+            }
             className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-[#21262D] hover:text-white text-left transition-colors"
           >
             <span className="flex items-center gap-2.5">
@@ -403,31 +412,45 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
             <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1 border-b border-[#21262D]">
                 <span className="text-[#C9D1D9]">New File</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + N</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + N
+                </kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
                 <span className="text-[#C9D1D9]">Toggle Explorer</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + Shift + E</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + Shift + E
+                </kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
                 <span className="text-[#C9D1D9]">Toggle Search</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + Shift + F</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + Shift + F
+                </kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
                 <span className="text-[#C9D1D9]">Toggle DevPilotX AI</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + Shift + A</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + Shift + A
+                </kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
                 <span className="text-[#C9D1D9]">Toggle Terminal Panel</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + `</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + `
+                </kbd>
               </div>
               <div className="flex justify-between py-1 border-b border-[#21262D]">
                 <span className="text-[#C9D1D9]">Settings & API Keys</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + ,</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + ,
+                </kbd>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-[#C9D1D9]">Close Active Tab</span>
-                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">Ctrl + W</kbd>
+                <kbd className="px-2 py-0.5 bg-[#21262D] border border-[#30363D] rounded text-[#8B949E] font-mono">
+                  Ctrl + W
+                </kbd>
               </div>
             </div>
 
@@ -463,10 +486,14 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isOpen, onClose })
             <div className="space-y-3 text-xs text-[#C9D1D9]">
               <div className="p-3 bg-[#0D1117] rounded-lg border border-[#30363D] space-y-1.5">
                 <div className="font-bold text-white text-sm flex items-center gap-1.5">
-                  DevPilotX Studio <span className="text-[10px] bg-[#1F6FEB]/30 text-[#58A6FF] px-1.5 py-0.5 rounded font-normal">v2.5.0</span>
+                  DevPilotX Studio{' '}
+                  <span className="text-[10px] bg-[#1F6FEB]/30 text-[#58A6FF] px-1.5 py-0.5 rounded font-normal">
+                    v2.5.0
+                  </span>
                 </div>
                 <p className="text-[#8B949E] text-[11px]">
-                  Next-generation cloud browser IDE powered by the DevPilotX multi-model engine, Monaco code editor, real terminal, and project dashboard.
+                  Next-generation cloud browser IDE powered by the DevPilotX multi-model engine,
+                  Monaco code editor, real terminal, and project dashboard.
                 </p>
               </div>
 
